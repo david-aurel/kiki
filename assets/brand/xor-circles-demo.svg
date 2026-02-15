@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="XOR-like overlap demo with two circles" style="isolation:isolate">
+  <style>
+    .bg { fill: #ffffff; }
+    .xor-shape {
+      fill: #ffffff;
+      mix-blend-mode: difference;
+    }
+    .label {
+      font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      fill: #222;
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="320" height="180" />
+
+  <!--
+    How it works:
+    - white circle + difference over white backdrop => black
+    - overlap of two such circles => inverts twice => white overlap
+    Note: this is XOR-like visual inversion, not geometric boolean XOR.
+  -->
+  <circle class="xor-shape" cx="110" cy="88" r="48">
+    <animate attributeName="cx" values="90;130;90" dur="2.4s" repeatCount="indefinite" />
+  </circle>
+  <circle class="xor-shape" cx="210" cy="88" r="48">
+    <animate attributeName="cx" values="230;190;230" dur="2.4s" repeatCount="indefinite" />
+  </circle>
+
+  <text class="label" x="16" y="160">difference blend demo: circles black, overlap white (XOR-like inversion)</text>
+</svg>

@@ -653,3 +653,28 @@ kiki/
     - hat reveal phase
     - merged hat+bell phase with subtle bell swing
   - Provided both light and dark variants for theme compatibility.
+
+### 2026-02-15 Session (Eleventh Pass)
+- Decision: revert previous icon-asset draft set to align with user-provided official mark.
+  - Removed generated icon/glyph/animation draft files from `assets/brand/`.
+- Decision: switch to official source vector `inspiration/icon.svg` as the only icon authority.
+- Decision: create first-pass official reveal animation prototype (not integrated).
+  - Asset: `assets/brand/kiki-official-reveal-animation.svg`
+  - Motion:
+    - starts with centered black bell
+    - hat starts off-frame (upper-right), small/distant
+    - hat drops in while scaling up and settling over bell
+    - bell transitions black->white using hat-coverage mask (coverage-driven reveal)
+- Constraint: wait for explicit user approval before generating dark/light variants or wiring into app/tray.
+
+### 2026-02-15 Session (Twelfth Pass)
+- Decision: reset animation prototype to strict official-icon path source.
+  - Rebuilt `assets/brand/kiki-official-reveal-animation.svg` using `inspiration/icon.svg` path data verbatim (`d` unchanged).
+  - Layering model:
+    - stationary black bell path
+    - moving black hat path
+    - white bell repaint masked by moving hat footprint for XOR-like color swap on overlap
+  - Motion model:
+    - hat starts off-frame upper-right
+    - simple lowering path into center coverage
+- Constraint remains: no app/tray integration until user approval.
