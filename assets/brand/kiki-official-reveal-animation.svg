@@ -1,8 +1,26 @@
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" style="display:block" viewBox="0 0 2048 2048" width="1024" height="1024" preserveAspectRatio="none">
+<svg version="1.1"
+  xmlns="http://www.w3.org/2000/svg" style="display:block" viewBox="0 0 2048 2048" width="1024" height="1024" preserveAspectRatio="none">
   <style>
     .bg { fill: rgb(255,255,255); }
     .ink { fill: rgb(0,0,0); }
     .paper { fill: rgb(255,255,255); }
+
+    .hat-motion {
+      transform: translate(0%, 0%) scale(1) rotate(90deg);      
+      transform-box: fill-box;   /* use element's own box */
+      transform-origin: 100% 100%;
+      animation: hatDropLoop 300ms ease-out forwards;      
+    }    
+
+    @keyframes hatDropLoop {      
+      0% {
+        transform: translate(0%, 0%) scale(1) rotate(90deg);        
+      }      
+
+      100% {
+        transform: translate(0%, 0%) scale(1) rotate(0deg);      
+      }      
+    }
   </style>
 
   <defs>
@@ -19,17 +37,8 @@
 
     <mask id="hat-cover-mask" maskUnits="userSpaceOnUse">
       <rect x="0" y="0" width="2048" height="2048" fill="black"/>
-      <g id="hat-mask-motion">
+      <g id="hat-mask-motion" class="hat-motion">
         <use href="#hat-path" fill="white"/>
-        <animateTransform
-          attributeName="transform"
-          type="translate"
-          from="420 -520"
-          to="0 0"
-          dur="1200ms"
-          fill="freeze"
-          begin="0s"
-        />
       </g>
     </mask>
   </defs>
@@ -37,17 +46,8 @@
   <rect class="bg" x="0" y="0" width="2048" height="2048"/>
 
   <!-- Hat is behind the bell -->
-  <g id="hat-visible-motion">
+  <g id="hat-visible-motion" class="hat-motion debug-origin">
     <use href="#hat-path" class="ink"/>
-    <animateTransform
-      attributeName="transform"
-      type="translate"
-      from="420 -520"
-      to="0 0"
-      dur="1200ms"
-      fill="freeze"
-      begin="0s"
-    />
   </g>
 
   <!-- Bell starts black and stationary -->
