@@ -1,38 +1,106 @@
-<svg version="1.1"
-  xmlns="http://www.w3.org/2000/svg" style="display:block" viewBox="0 0 2048 2048" width="1024" height="1024" preserveAspectRatio="none">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" style="display:block" viewBox="0 0 2048 2048" width="1024" height="1024" preserveAspectRatio="none" data-theme="light" data-focus="calm" data-animate="false">
   <style>
-    .bg { fill: rgb(255,255,255); }
-    .ink { fill: rgb(0,0,0); }
-    .paper { fill: rgb(255,255,255); }
+    /*
+      Config API (single-file variants)
+      - data-theme: light | dark
+      - data-focus: all | calm | personal | zen
+      - data-animate: true | false
+
+      Defaults in this file: light + static.
+    */
+
+    svg {
+      --bg-color: rgb(255,255,255);
+      --hat-color: rgb(0,0,0);
+      --bell-color: rgb(255,255,255);
+      --bell-detail-color: rgb(0,0,0);
+
+      --xor-opacity: 1;
+
+      --hat-start-transform: translate(0%, 0%) scale(1) rotate(90deg);
+      --hat-end-transform: translate(0%, 0%) scale(1) rotate(0deg);
+
+      --hat-duration: 300ms;
+      --hat-easing: ease-out;
+      --hat-direction: normal;
+      --hat-animation-name: none;
+    }
+
+    svg[data-theme="dark"] {
+      --bg-color: rgb(0,0,0);
+      --hat-color: rgb(255,255,255);
+      --bell-color: rgb(0,0,0);
+      --bell-detail-color: rgb(255,255,255);
+    }
+
+    svg[data-animate="true"] {
+      --hat-animation-name: hatDrop;
+    }
+
+    svg[data-animate="true"][data-focus="all"] {
+      --hat-direction: reverse;
+      --xor-opacity: 1;
+    }
+
+    svg[data-animate="true"][data-focus="calm"],
+    svg[data-animate="true"][data-focus="personal"] {
+      --hat-direction: normal;
+      --xor-opacity: 1;
+    }
+
+    svg[data-animate="true"][data-focus="zen"] {
+      --hat-direction: normal;
+      --xor-opacity: 0;
+    }
+
+    .bg {
+      fill: var(--bg-color);
+    }
+
+    .hat {
+      fill: var(--hat-color);
+    }
+
+    .bell {
+      fill: var(--bell-color);
+    }
+
+    .bell-detail {
+      fill: var(--bell-detail-color);
+    }
+
+    .bell-xor {
+      opacity: var(--xor-opacity);
+    }
 
     .hat-motion {
-      transform: translate(0%, 0%) scale(1) rotate(90deg);      
-      transform-box: fill-box;   /* use element's own box */
+      transform: var(--hat-end-transform);
+      transform-box: fill-box;
       transform-origin: 100% 100%;
-      animation: hatDropLoop 300ms ease-out forwards;      
-    }    
+      animation-name: var(--hat-animation-name);
+      animation-duration: var(--hat-duration);
+      animation-timing-function: var(--hat-easing);
+      animation-direction: var(--hat-direction);
+      animation-iteration-count: 1;
+      animation-fill-mode: forwards;
+    }
 
-    @keyframes hatDropLoop {      
-      0% {
-        transform: translate(0%, 0%) scale(1) rotate(90deg);        
-      }      
-
-      100% {
-        transform: translate(0%, 0%) scale(1) rotate(0deg);      
-      }      
+    @keyframes hatDrop {
+      from {
+        transform: var(--hat-start-transform);
+      }
+      to {
+        transform: var(--hat-end-transform);
+      }
     }
   </style>
 
   <defs>
-    <!-- OFFICIAL PATHS, split into conceptual layers without editing d geometry -->
-
-    <!-- Hat silhouette only (first subpath from official icon) -->
+    <!-- Official geometry paths (d values unchanged) -->
     <path id="hat-path" d="M 1138.41 276.331 C 1182.11 272.304 1204.77 293.408 1237.82 318.24 L 1301.51 365.89 C 1340.33 394.672 1378.99 423.681 1417.47 452.914 C 1438.13 468.527 1459.37 484.263 1479.13 500.8 C 1491.25 510.939 1495.83 534.989 1487.9 548.687 C 1483.16 556.892 1473.8 562.429 1464.51 563.282 C 1442.11 565.252 1419.06 559.326 1396.85 556.313 C 1350.4 550.012 1303.89 541.048 1257.29 536.278 C 1245.02 535.023 1230.44 536.168 1224.86 548.928 C 1218.64 563.192 1221.74 579.176 1225.18 593.892 C 1231.43 616.165 1239.35 638.073 1246.67 659.917 L 1293.03 796.591 L 1436.25 1218.36 C 1457.95 1224.48 1480.44 1228.42 1502.31 1234 C 1589.64 1256.29 1690.34 1286.58 1759.56 1346.86 C 1779.57 1364.29 1798.43 1388.67 1800.16 1416.09 C 1801.81 1442.12 1791.54 1463.9 1774.54 1483.14 C 1669.75 1601.8 1339.96 1648.5 1186.25 1657.74 C 1168.58 1658.54 1150.87 1660.04 1133.18 1660.79 C 1079.86 1662.95 1026.48 1663.68 973.121 1663 C 781.025 1659.9 464.532 1628.52 301.942 1523.44 C 271.54 1503.79 236.146 1474.25 228.361 1436.91 C 223.915 1415.58 229.807 1394.82 241.659 1376.9 C 300.572 1287.83 493.447 1239.29 594.009 1218.52 C 599.426 1206.64 609.918 1172.49 614.587 1158.53 L 653.887 1042.02 L 777.667 678.304 C 786.359 652.024 795.261 625.813 804.371 599.675 C 822.777 545.16 843.432 481.315 878.087 434.452 C 888.977 419.726 907.564 407.101 922.899 397.219 C 983.139 358.402 1044.9 321.422 1107.19 286.041 C 1115.79 281.156 1128.59 277.597 1138.41 276.331 z"/>
 
-    <!-- Bell body + clapper shape from official icon path subpaths -->
     <path id="bell-body-path" d="M 957.422 923.994 C 943.784 929.686 929.911 934.392 916.769 941.255 C 880.175 960.366 851.505 993.364 835.769 1031.28 C 817.121 1076.21 815.97 1127.88 812.391 1175.84 C 809.959 1208.43 807.326 1239.9 794.17 1270.33 C 788.562 1283.3 780.393 1295.81 771.916 1307.07 C 756.039 1328.16 718.735 1360.97 729.948 1389.36 C 732.059 1394.7 736.075 1398.94 741.526 1400.97 C 752.434 1405.01 830.888 1402.77 847.944 1402.77 L 1020.35 1402.88 L 1198.96 1402.8 L 1251.43 1402.87 C 1272.37 1402.9 1300.17 1407.83 1299.49 1376.74 C 1299.12 1359.55 1290.2 1348.22 1279.91 1335.56 C 1260.2 1311.55 1239.45 1288.09 1228.23 1258.69 C 1218.64 1233.57 1215.56 1207.69 1213.47 1181.12 C 1208.23 1102 1210.84 1022.15 1146.07 964.195 C 1122.74 943.321 1100.03 931.607 1069.27 923.912 C 1076.54 904.593 1078.47 888.352 1069.67 868.95 C 1062.96 853.994 1050.44 842.422 1035.01 836.911 C 1026.55 833.89 1018.38 833.187 1009.46 833.461 C 961.614 839.382 941.834 880.174 957.422 923.994 z M 937.729 1429.09 C 940.224 1452.24 947.405 1469.97 966.122 1485.08 C 981.731 1497.75 1001.73 1503.72 1021.73 1501.67 C 1030.72 1500.69 1039.45 1498.06 1047.49 1493.92 C 1076.26 1478.01 1085.32 1461 1090.31 1428.97 C 1054.8 1428.2 1005.64 1426.82 970.565 1428.47 C 959.679 1429.08 948.642 1429.02 937.729 1429.09 z"/>
 
-    <!-- Bell center detail (second official path) -->
     <path id="bell-detail-path" d="M 1010.3 872.203 C 1031.1 871.652 1046.66 891.59 1033.7 910.743 C 1030.46 915.536 1023.42 915.127 1017.99 915.103 C 1009.51 915.085 1002.83 915.168 994.62 912.683 C 982.793 895.195 990.175 877.711 1010.3 872.203 z"/>
 
     <mask id="hat-cover-mask" maskUnits="userSpaceOnUse">
@@ -45,15 +113,18 @@
 
   <rect class="bg" x="0" y="0" width="2048" height="2048"/>
 
-  <!-- Hat is behind the bell -->
-  <g id="hat-visible-motion" class="hat-motion debug-origin">
-    <use href="#hat-path" class="ink"/>
+  <!-- Bell base layer -->
+  <use href="#bell-body-path" class="bell"/>
+  <use href="#bell-detail-path" class="bell-detail"/>
+
+  <!-- Hat layer -->
+  <g id="hat-visible-motion" class="hat-motion">
+    <use href="#hat-path" class="hat"/>
   </g>
 
-  <!-- Bell starts black and stationary -->
-  <use href="#bell-body-path" class="ink"/>
-  <use href="#bell-detail-path" class="ink"/>
-
-  <!-- XOR-like overlap color flip: repaint bell body white where hat covers it -->
-  <use href="#bell-body-path" class="paper" mask="url(#hat-cover-mask)"/>
+  <!-- XOR-like bell repaint on overlap (disabled in zen) -->
+  <g class="bell-xor">
+    <use href="#bell-body-path" class="bell" mask="url(#hat-cover-mask)"/>
+    <use href="#bell-detail-path" class="bell-detail" mask="url(#hat-cover-mask)"/>
+  </g>
 </svg>

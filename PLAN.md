@@ -678,3 +678,16 @@ kiki/
     - hat starts off-frame upper-right
     - simple lowering path into center coverage
 - Constraint remains: no app/tray integration until user approval.
+
+### 2026-02-15 Session (Thirteenth Pass)
+- Decision: consolidate icon variants and focus-mode animation behavior into one SVG file.
+  - File: `assets/brand/kiki-official-reveal-animation.svg`
+  - Control surface:
+    - `data-theme=\"light|dark\"`
+    - `data-focus=\"all|calm|personal|zen\"`
+    - `data-animate=\"true|false\"`
+  - Behavior mapping:
+    - static icon (`data-animate=\"false\"`) = no animation, theme colors applied
+    - `focus=all` + animate => reverse animation
+    - `focus=calm|personal` + animate => normal animation with XOR overlap
+    - `focus=zen` + animate => normal animation with XOR layer disabled (bell swallowed)
