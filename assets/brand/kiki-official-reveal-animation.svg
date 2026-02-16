@@ -7,18 +7,30 @@
       - data-animate: true | false
 
       Defaults in this file: light + static.
+
+      Usage matrix:
+      1) Static light icon:
+         data-theme="light" data-animate="false"
+      2) Static dark icon:
+         data-theme="dark" data-animate="false"
+      3) Enter focus all (reverse):
+         data-theme="light|dark" data-focus="all" data-animate="true"
+      4) Enter focus calm/personal (normal + XOR):
+         data-theme="light|dark" data-focus="calm|personal" data-animate="true"
+      5) Enter focus zen (normal, no XOR):
+         data-theme="light|dark" data-focus="zen" data-animate="true"
     */
 
     svg {
-      --bg-color: rgb(255,255,255);
-      --hat-color: rgb(0,0,0);
-      --bell-color: rgb(255,255,255);
-      --bell-detail-color: rgb(0,0,0);
+      /* Base palette: hat + bell start with same color */
+      --base-color: rgb(0,0,0);
+      --contrast-color: rgb(255,255,255);
 
       --xor-opacity: 1;
 
       --hat-start-transform: translate(0%, 0%) scale(1) rotate(90deg);
       --hat-end-transform: translate(0%, 0%) scale(1) rotate(0deg);
+      --hat-static-transform: var(--hat-end-transform);
 
       --hat-duration: 300ms;
       --hat-easing: ease-out;
@@ -27,10 +39,13 @@
     }
 
     svg[data-theme="dark"] {
-      --bg-color: rgb(0,0,0);
-      --hat-color: rgb(255,255,255);
-      --bell-color: rgb(0,0,0);
-      --bell-detail-color: rgb(255,255,255);
+      --base-color: rgb(255,255,255);
+      --contrast-color: rgb(0,0,0);
+    }
+
+    /* All mode static pose is the reversed-end pose (hat back at start transform) */
+    svg[data-focus="all"] {
+      --hat-static-transform: var(--hat-start-transform);
     }
 
     svg[data-animate="true"] {
@@ -53,20 +68,20 @@
       --xor-opacity: 0;
     }
 
-    .bg {
-      fill: var(--bg-color);
-    }
-
     .hat {
-      fill: var(--hat-color);
+      fill: var(--base-color);
     }
 
     .bell {
-      fill: var(--bell-color);
+      fill: var(--base-color);
     }
 
     .bell-detail {
-      fill: var(--bell-detail-color);
+      fill: var(--base-color);
+    }
+
+    .bell-contrast {
+      fill: var(--contrast-color);
     }
 
     .bell-xor {
@@ -74,7 +89,7 @@
     }
 
     .hat-motion {
-      transform: var(--hat-end-transform);
+      transform: var(--hat-static-transform);
       transform-box: fill-box;
       transform-origin: 100% 100%;
       animation-name: var(--hat-animation-name);
@@ -111,8 +126,6 @@
     </mask>
   </defs>
 
-  <rect class="bg" x="0" y="0" width="2048" height="2048"/>
-
   <!-- Bell base layer -->
   <use href="#bell-body-path" class="bell"/>
   <use href="#bell-detail-path" class="bell-detail"/>
@@ -124,7 +137,7 @@
 
   <!-- XOR-like bell repaint on overlap (disabled in zen) -->
   <g class="bell-xor">
-    <use href="#bell-body-path" class="bell" mask="url(#hat-cover-mask)"/>
-    <use href="#bell-detail-path" class="bell-detail" mask="url(#hat-cover-mask)"/>
+    <use href="#bell-body-path" class="bell-contrast" mask="url(#hat-cover-mask)"/>
+    <use href="#bell-detail-path" class="bell-contrast" mask="url(#hat-cover-mask)"/>
   </g>
 </svg>

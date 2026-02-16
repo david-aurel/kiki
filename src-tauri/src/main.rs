@@ -15,7 +15,8 @@ fn main() {
             commands::db_log_suppression,
             commands::db_list_deliveries,
             commands::db_list_suppressions,
-            commands::open_external_url
+            commands::open_external_url,
+            commands::set_tray_state
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

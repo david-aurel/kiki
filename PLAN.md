@@ -691,3 +691,67 @@ kiki/
     - `focus=all` + animate => reverse animation
     - `focus=calm|personal` + animate => normal animation with XOR overlap
     - `focus=zen` + animate => normal animation with XOR layer disabled (bell swallowed)
+
+### 2026-02-15 Session (Fourteenth Pass)
+- Decision: document icon SVG configuration directly in-file.
+  - Added explicit usage matrix comments in `assets/brand/kiki-official-reveal-animation.svg`.
+- Decision: replace legacy topbar icon + center overlay transition with state-aware in-place icon animation.
+  - Added `KikiStateIcon` component that injects the single SVG template and drives:
+    - `data-theme` from system theme
+    - `data-focus` from selected focus mode
+    - `data-animate` on focus-mode transitions
+  - Removed center overlay transition from `App`.
+- Decision: add system dark/light mode behavior for app UI.
+  - CSS now includes `prefers-color-scheme: light` overrides while preserving dark default palette.
+- Decision: propagate icon state to macOS tray title and ensure tray icon visibility.
+  - Added tray-state command bridge (`set_tray_state`) and frontend runtime call.
+  - Tray now uses default app icon when available and updates title with focus/theme indicator text.
+
+### 2026-02-15 Session (Fifteenth Pass)
+- Finding: tray icon rendered as red square because `src-tauri/icons/icon.png` was a 1x1 placeholder.
+  - Decision: replace tray icon with proper 64x64 transparent RGBA asset generated from official icon source.
+- Decision: remove textual tray-title state rendering (`◐`, mode labels) to avoid menu bar clutter and incorrect fallback visuals.
+  - Tray now renders icon-only in menu bar; focus/theme state is surfaced via tooltip instead.
+- Decision: enforce transparent icon background in the single SVG source.
+  - Removed background rectangle fill from `assets/brand/kiki-official-reveal-animation.svg`.
+- Decision: use macOS template-icon behavior for tray icon.
+  - Enabled `icon_as_template(true)` in tray builder so icon adapts to menu bar appearance.
+
+### 2026-02-15 Session (Sixteenth Pass)
+- Plan/Decision: normalize icon animation logic around a base/contrast color model.
+  - Hat + bell now always start in the same `--base-color` (theme-driven).
+  - Contrast only appears via masked overlap repaint (`--contrast-color`) to keep bell visible under hat.
+- Plan/Decision: focus-mode behavior mapping in SVG variables:
+  - `calm|personal`: normal animation + XOR repaint enabled.
+  - `zen`: normal animation + XOR repaint disabled (bell swallowed by same-color hat).
+  - `all`: reverse animation; static pose defaults to reversed-end (`hat-start-transform`) so no jump-back.
+- Plan/Decision: keep transparent icon source.
+  - No background rectangle in icon SVG.
+
+### 2026-02-15 Session (Seventeenth Pass)
+- Decision: increase in-app header icon size and topbar scale for better visibility.
+  - Topbar icon now renders larger in title area.
+  - Topbar typography/padding increased slightly to match.
+- Decision: add explicit tray icon set per focus state.
+  - Generated transparent RGBA tray assets:
+    - `src-tauri/icons/tray-all.png`
+    - `src-tauri/icons/tray-focus.png`
+    - `src-tauri/icons/tray-zen.png`
+  - Tray icon now updates by focus mode (`all`, `calm|focused|personal`, `zen`).
+- Decision: keep tray icon-only visual in menu bar.
+  - No visible tray title text; state remains in tooltip.
+
+### 2026-02-15 Session (Eighteenth Pass)
+- Decision: add explicit tray icon sets for light and dark system themes.
+  - Generated six transparent RGBA tray assets:
+    - `src-tauri/icons/tray-all-light.png`
+    - `src-tauri/icons/tray-focus-light.png`
+    - `src-tauri/icons/tray-zen-light.png`
+    - `src-tauri/icons/tray-all-dark.png`
+    - `src-tauri/icons/tray-focus-dark.png`
+    - `src-tauri/icons/tray-zen-dark.png`
+- Decision: tray icon selection now keys on `(theme, focus_mode)`.
+  - Theme from app system preference listener.
+  - Focus buckets: `all`, `calm|focused|personal`, `zen`.
+- Decision: disable template-icon mode for tray.
+  - `icon_as_template(false)` to preserve explicit light/dark icon assets.

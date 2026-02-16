@@ -6,6 +6,7 @@ import { SqliteStoreAdapter } from "../adapters/store/sqliteStoreAdapter";
 import { runNotificationPipeline } from "../core/services/notificationPipeline";
 import { getDeliveryDecision } from "../core/rules/notificationDecision";
 import { getSettings } from "./appState";
+import { invoke } from "@tauri-apps/api/core";
 
 const secrets = new KeychainAdapter();
 const github = new GitHubHttpAdapter(secrets);
@@ -80,4 +81,16 @@ export async function testGithubConnection(): Promise<string> {
 export async function testSlackConnection(): Promise<string> {
   const settings = getSettings();
   return slack.testConnection(settings.slackTokenRef);
+}
+
+export async function updateTrayState(
+  theme: "light" | "dark",
+  focusMode: "all" | "calm" | "focused" | "zen",
+  animating: boolean
+): Promise<void> {
+  try {
+    await invoke("set_tray_state", { theme, focusMode, focus_mode: focusMode, animating });
+  } catch {
+    // No-op in browser mode or if tray update command is unavailable.
+  }
 }

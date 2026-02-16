@@ -6,8 +6,8 @@ import { loadMyPrs, loadRecentNotifications, loadReviewRequests, syncNow, testGi
 import { PrTable } from "./ui/components/PrTable";
 import { RecentNotifications } from "./ui/components/RecentNotifications";
 import { SettingsPanel } from "./ui/components/SettingsPanel";
-import { KikiMark } from "./ui/components/KikiMark";
-import { FocusModeTransition } from "./ui/components/FocusModeTransition";
+import { KikiStateIcon } from "./ui/components/KikiStateIcon";
+import { updateTrayState } from "./lib/runtime";
 import "./ui/styles/app.css";
 
 type SectionTab = "review" | "my" | "delivered" | "suppressed";
@@ -41,6 +41,9 @@ export default function App() {
   });
   const [mobileTab, setMobileTab] = useState<SectionTab>("review");
   const [focusTransition, setFocusTransition] = useState<FocusMode | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">(() => (
+    window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  ));
   const transitionTimerRef = useRef<number | null>(null);
 
   const sortedReviewRequests = useMemo(() => sortReviewRequestsOldestFirst(reviewRequests), [reviewRequests]);
@@ -87,6 +90,19 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [paused, runSync]);
 
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (event: MediaQueryListEvent) => {
+      setTheme(event.matches ? "dark" : "light");
+    };
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    void updateTrayState(theme, focusTransition ?? focusMode, Boolean(focusTransition));
+  }, [theme, focusMode, focusTransition]);
+
   function switchFocus(mode: FocusMode): void {
     if (mode === focusMode) return;
 
@@ -119,7 +135,16 @@ export default function App() {
   return (
     <div className="layout-root">
       <header className="topbar panel">
-        <div className="topbar-left"><KikiMark /><span>Kiki</span></div>
+        <div className="topbar-left">
+          <KikiStateIcon
+            key={`${theme}:${focusTransition ?? focusMode}:${focusTransition ? "anim" : "static"}`}
+            theme={theme}
+            focusMode={focusTransition ?? focusMode}
+            animate={Boolean(focusTransition)}
+            size={34}
+          />
+          <span>Kiki</span>
+        </div>
         <div className="focus-row">
           <span className="focus-label">Focus mode</span>
           {focusOptions.map((option) => (
@@ -230,8 +255,6 @@ export default function App() {
           </div>
         </div>
       ) : null}
-
-      <FocusModeTransition mode={focusTransition} />
 
       <div className="status-line kpi">{status}</div>
     </div>

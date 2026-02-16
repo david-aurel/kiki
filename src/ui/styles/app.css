@@ -14,6 +14,24 @@
   --diff-minus: #d97c7c;
 }
 
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-0: #f4f6f8;
+    --panel: #ffffff;
+    --line: #d6dde5;
+    --text: #1b2430;
+    --muted: #5d6b7a;
+    --accent: #2e7f7a;
+    --excellent: #2f8e5f;
+    --very-good: #4b9a69;
+    --good: #5b7791;
+    --degrading: #a87536;
+    --critical: #b84d4d;
+    --diff-plus: #2f8e5f;
+    --diff-minus: #b84d4d;
+  }
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 
@@ -45,15 +63,25 @@ body {
   grid-template-columns: 1fr;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
 
 .topbar-left {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 17px;
+  gap: 10px;
+  font-size: 19px;
   font-weight: 600;
+}
+
+.kiki-state-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.kiki-state-icon > svg {
+  width: 100%;
+  height: 100%;
 }
 
 .kiki-mark-bg { fill: #161a1f; stroke: var(--line); stroke-width: 1; }

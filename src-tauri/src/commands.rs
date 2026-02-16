@@ -1,8 +1,8 @@
 use keyring::Entry;
 use serde_json::Value;
-use tauri::State;
+use tauri::{AppHandle, State};
 
-use crate::db::{AppDb, DbLogEntry};
+use crate::{db::{AppDb, DbLogEntry}, tray};
 
 const SERVICE_NAME: &str = "kiki";
 
@@ -94,4 +94,14 @@ pub fn open_external_url(url: String) -> Result<(), String> {
 
     #[allow(unreachable_code)]
     Err("Unsupported platform".to_string())
+}
+
+#[tauri::command]
+pub fn set_tray_state(
+    app: AppHandle,
+    theme: String,
+    focus_mode: String,
+    animating: bool,
+) -> Result<(), String> {
+    tray::set_tray_state(&app, &theme, &focus_mode, animating)
 }
