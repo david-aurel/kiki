@@ -105,7 +105,6 @@ export function PrTable({ rows, currentUser, showAuthor = true }: PrTableProps) 
               <td><span className={`badge ${sla}`}>{formatAge(pr.createdAt)}</span></td>
               <td className="diff-nowrap">
                 <span className="diff-plus">+{pr.additions}</span>
-                <span className="diff-sep">/</span>
                 <span className="diff-minus">-{pr.deletions}</span>
                 <span className="kpi"> ({pr.changedFiles})</span>
               </td>

@@ -250,8 +250,10 @@ export default function App() {
 
       {showSettings ? (
         <div className="settings-overlay" onClick={() => setShowSettings(false)}>
-          <div className="settings-drawer" onClick={(event) => event.stopPropagation()}>
-            <SettingsPanel onSaved={setStatus} />
+          <div className="settings-drawer">
+            <div className="settings-shell" onClick={(event) => event.stopPropagation()}>
+              <SettingsPanel onSaved={setStatus} onClose={() => setShowSettings(false)} />
+            </div>
           </div>
         </div>
       ) : null}

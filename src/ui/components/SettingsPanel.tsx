@@ -4,9 +4,10 @@ import { saveSecret, testGithubConnection, testSlackConnection } from "../../lib
 
 interface SettingsPanelProps {
   onSaved: (message: string) => void;
+  onClose: () => void;
 }
 
-export function SettingsPanel({ onSaved }: SettingsPanelProps) {
+export function SettingsPanel({ onSaved, onClose }: SettingsPanelProps) {
   const base = getSettings();
   const [githubTokenRef, setGithubTokenRef] = useState(base.githubTokenRef);
   const [slackTokenRef, setSlackTokenRef] = useState(base.slackTokenRef);
@@ -68,7 +69,10 @@ export function SettingsPanel({ onSaved }: SettingsPanelProps) {
 
   return (
     <div className="sidebar panel">
-      <h3>Settings</h3>
+      <div className="settings-header">
+        <h3>Settings</h3>
+        <button className="icon-btn settings-close-btn" onClick={onClose} aria-label="Close settings">×</button>
+      </div>
       <div className="field">
         <label>GitHub Token Ref</label>
         <input value={githubTokenRef} onChange={(e) => setGithubTokenRef(e.target.value)} />

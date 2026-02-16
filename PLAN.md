@@ -755,3 +755,52 @@ kiki/
   - Focus buckets: `all`, `calm|focused|personal`, `zen`.
 - Decision: disable template-icon mode for tray.
   - `icon_as_template(false)` to preserve explicit light/dark icon assets.
+
+### 2026-02-16 Session (Nineteenth Pass)
+- Decision: regenerate tray PNG assets from the current official SVG geometry/state.
+  - Rebuilt:
+    - `src-tauri/icons/tray-all-light.png`
+    - `src-tauri/icons/tray-focus-light.png`
+    - `src-tauri/icons/tray-zen-light.png`
+    - `src-tauri/icons/tray-all-dark.png`
+    - `src-tauri/icons/tray-focus-dark.png`
+    - `src-tauri/icons/tray-zen-dark.png`
+  - Synced compatibility aliases:
+    - `src-tauri/icons/tray-all.png`
+    - `src-tauri/icons/tray-focus.png`
+    - `src-tauri/icons/tray-zen.png`
+- Decision: add relative timestamps to recent notification cards (delivered and suppressed sections).
+  - Timestamp shown on the right side of each card header.
+  - Format:
+    - `<60m`: minutes, e.g. `1M`, `22M`
+    - `<24h`: hours, e.g. `2h`, `23h`
+    - `>=24h`: shared long formatter (`1d 3h`, `1.5w`, etc.)
+
+### 2026-02-16 Session (Twentieth Pass)
+- Regression fix: restore focus-mode chip tooltips by removing overflow clipping on the focus row.
+  - `src/ui/styles/app.css`: `.focus-row` now uses visible overflow so chip pseudo-tooltips can render outside the row box.
+- UI polish: remove slash separator from PR diff display.
+  - `src/ui/components/PrTable.tsx`: diff now renders as `+X -Y (files)` with no `/` separator.
+
+### 2026-02-16 Session (Twenty-First Pass)
+- Regression fix: restore full light-mode support for topbar controls, notification cards, settings form controls, and mobile tab switcher.
+  - Introduced shared surface variables in `src/ui/styles/app.css`:
+    - `--surface-1`
+    - `--surface-2`
+    - `--surface-hover`
+    - `--tooltip-bg`
+  - Mapped dark/light values in `:root` and `@media (prefers-color-scheme: light)`.
+  - Replaced hardcoded dark backgrounds for:
+    - focus chips
+    - secondary/settings buttons
+    - notification cards + hover states
+    - settings `input`/`textarea`
+    - mobile active tab background
+    - tooltip surfaces and placeholder avatar backgrounds
+
+### 2026-02-16 Session (Twenty-Second Pass)
+- UX fix: clicking anywhere outside settings now closes the settings drawer.
+  - Moved click stop-propagation from full-height drawer container to an inner settings shell around the actual panel.
+  - This allows clicks in empty drawer area (including below content) to bubble to overlay close handler.
+- UX polish: added a small close button in settings header.
+  - `SettingsPanel` now accepts `onClose` and renders a top-right `×` icon button.

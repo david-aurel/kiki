@@ -1,5 +1,6 @@
 import type { GitHubNotification } from "../../core/models/types";
 import { openExternal } from "../../lib/openExternal";
+import { formatNotificationAge } from "../../lib/time";
 
 interface RecentNotificationsProps {
   rows: GitHubNotification[];
@@ -52,6 +53,9 @@ export function RecentNotifications({ rows, emptyText = "No recent notifications
                 </span>
               ) : null}
             </div>
+            <span className="notification-age" title={new Date(notification.updatedAt).toLocaleString()}>
+              {formatNotificationAge(notification.updatedAt)}
+            </span>
           </div>
 
           {notification.category === "review_request" ? (

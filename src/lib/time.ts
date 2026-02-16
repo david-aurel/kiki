@@ -22,3 +22,16 @@ export function formatAge(isoTime: string): string {
 
   return `${Math.floor(weeks)}w`;
 }
+
+export function formatNotificationAge(isoTime: string): string {
+  const ms = Date.now() - new Date(isoTime).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return "1M";
+
+  const minutes = Math.floor(ms / (1000 * 60));
+  if (minutes < 60) return `${Math.max(1, minutes)}M`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+
+  return formatAge(isoTime);
+}
