@@ -1,4 +1,5 @@
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" style="display:block" viewBox="0 0 2048 2048" width="1024" height="1024" preserveAspectRatio="none" data-theme="light" data-focus="calm" data-animate="false">
+<svg version="1.1"
+  xmlns="http://www.w3.org/2000/svg" style="display:block" viewBox="0 0 2048 2048" width="1024" height="1024" preserveAspectRatio="none" data-theme="light" data-focus="calm" data-animate="false">
   <style>
     /*
       Config API (single-file variants)
@@ -9,16 +10,11 @@
       Defaults in this file: light + static.
 
       Usage matrix:
-      1) Static light icon:
-         data-theme="light" data-animate="false"
-      2) Static dark icon:
-         data-theme="dark" data-animate="false"
-      3) Enter focus all (reverse):
-         data-theme="light|dark" data-focus="all" data-animate="true"
-      4) Enter focus calm/personal (normal + XOR):
-         data-theme="light|dark" data-focus="calm|personal" data-animate="true"
-      5) Enter focus zen (normal, no XOR):
-         data-theme="light|dark" data-focus="zen" data-animate="true"
+      1) Static light icon: data-theme="light" data-animate="false"
+      2) Static dark icon: data-theme="dark" data-animate="false"
+      3) Enter focus all (reverse): data-theme="light|dark" data-focus="all" data-animate="true"
+      4) Enter focus calm/personal (normal + XOR): data-theme="light|dark" data-focus="calm|personal" data-animate="true"
+      5) Enter focus zen (normal, no XOR): data-theme="light|dark" data-focus="zen" data-animate="true"
     */
 
     svg {
@@ -28,7 +24,7 @@
 
       --xor-opacity: 1;
 
-      --hat-start-transform: translate(0%, 0%) scale(1) rotate(90deg);
+      --hat-start-transform: translate(16%, 0%) scale(1) rotate(90deg);
       --hat-end-transform: translate(0%, 0%) scale(1) rotate(0deg);
       --hat-static-transform: var(--hat-end-transform);
 
@@ -36,34 +32,31 @@
       --hat-easing: ease-out;
       --hat-direction: normal;
       --hat-animation-name: none;
-    }
-
-    svg[data-theme="dark"] {
+      --bell-animation-name: none;
+      --bell-start-transform: translate(10%, -20%) scale(2);
+      --bell-end-transform: translate(0%, 0%) scale(1);
+      --bell-static-transform: var(--bell-end-transform);
+    } svg[data-theme="dark"] {
       --base-color: rgb(255,255,255);
       --contrast-color: rgb(0,0,0);
     }
 
-    /* All mode static pose is the reversed-end pose (hat back at start transform) */
-    svg[data-focus="all"] {
+    /* All mode static pose is the reversed-end pose (hat back at start transform) */ svg[data-focus="all"] {
       --hat-static-transform: var(--hat-start-transform);
-    }
-
-    svg[data-animate="true"] {
+      --bell-static-transform: var(--bell-start-transform);
+      --xor-opacity: 1;
+    } svg[data-focus="zen"] {
+      --xor-opacity: 0;
+    } svg[data-animate="true"] {
       --hat-animation-name: hatDrop;
-    }
-
-    svg[data-animate="true"][data-focus="all"] {
+      --bell-animation-name: bellScale;
+    } svg[data-animate="true"][data-focus="all"] {
       --hat-direction: reverse;
       --xor-opacity: 1;
-    }
-
-    svg[data-animate="true"][data-focus="calm"],
-    svg[data-animate="true"][data-focus="personal"] {
+    } svg[data-animate="true"][data-focus="calm"], svg[data-animate="true"][data-focus="personal"] {
       --hat-direction: normal;
       --xor-opacity: 1;
-    }
-
-    svg[data-animate="true"][data-focus="zen"] {
+    } svg[data-animate="true"][data-focus="zen"] {
       --hat-direction: normal;
       --xor-opacity: 0;
     }
@@ -100,12 +93,33 @@
       animation-fill-mode: forwards;
     }
 
+    .bell-motion {
+      transform: var(--bell-static-transform);
+      transform-box: fill-box;
+      transform-origin: 50% 50%;
+      animation-name: var(--bell-animation-name);
+      animation-duration: var(--hat-duration);
+      animation-timing-function: var(--hat-easing);
+      animation-direction: var(--hat-direction);
+      animation-iteration-count: 1;
+      animation-fill-mode: forwards;
+    }
+
     @keyframes hatDrop {
       from {
         transform: var(--hat-start-transform);
       }
       to {
         transform: var(--hat-end-transform);
+      }
+    }
+
+    @keyframes bellScale {
+      from {
+        transform: var(--bell-start-transform);
+      }
+      to {
+        transform: var(--bell-end-transform);
       }
     }
   </style>
@@ -127,8 +141,10 @@
   </defs>
 
   <!-- Bell base layer -->
-  <use href="#bell-body-path" class="bell"/>
-  <use href="#bell-detail-path" class="bell-detail"/>
+  <g id="bell-main-motion" class="bell-motion">
+    <use href="#bell-body-path" class="bell"/>
+    <use href="#bell-detail-path" class="bell-detail"/>
+  </g>
 
   <!-- Hat layer -->
   <g id="hat-visible-motion" class="hat-motion">
@@ -136,7 +152,7 @@
   </g>
 
   <!-- XOR-like bell repaint on overlap (disabled in zen) -->
-  <g class="bell-xor">
+  <g id="bell-xor-motion" class="bell-xor bell-motion">
     <use href="#bell-body-path" class="bell-contrast" mask="url(#hat-cover-mask)"/>
     <use href="#bell-detail-path" class="bell-contrast" mask="url(#hat-cover-mask)"/>
   </g>
