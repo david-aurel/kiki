@@ -131,6 +131,7 @@ export default function App() {
     () => notifications.filter((notification) => !notification.delivered),
     [notifications]
   );
+  const bothRightPanelsCollapsed = collapsed.delivered && collapsed.suppressed;
 
   return (
     <div className="layout-root">
@@ -166,7 +167,10 @@ export default function App() {
         </div>
       </header>
 
-      <div className="desktop-layout body-grid">
+      <div
+        className="desktop-layout body-grid"
+        style={bothRightPanelsCollapsed ? { gridTemplateColumns: "minmax(0, 1fr) auto" } : undefined}
+      >
         <main className="stack-column">
           <section className={`section-card panel ${collapsed.review ? "collapsed-y" : ""}`} style={{ flex: collapsed.review ? "0 0 34px" : "1 1 0" }}>
             <div className="section-head">

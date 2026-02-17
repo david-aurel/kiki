@@ -908,4 +908,9 @@ kiki/
 ### 2026-02-17 Session (Thirty-Fourth Pass)
 - Dock icon visual adjustment:
   - Switched app icon generation source to glyph-only tray mark (`src-tauri/icons/tray-focus-light.png`) to avoid nested rounded-square look in macOS Dock.
-  - Regenerated full icon set (`icon.icns`, `icon.png`, etc.) with `tauri icon`.
+- Regenerated full icon set (`icon.icns`, `icon.png`, etc.) with `tauri icon`.
+
+### 2026-02-17 Session (Thirty-Fifth Pass)
+- Desktop layout collapse behavior fix:
+  - When both right-side notification columns (`Delivered` and `Suppressed`) are collapsed, desktop grid now switches from fixed `620px` right column to `auto`.
+  - This allows PR sections to reclaim horizontal space instead of leaving a large empty reserved area.
