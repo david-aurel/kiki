@@ -94,3 +94,11 @@ export async function updateTrayState(
     // No-op in browser mode or if tray update command is unavailable.
   }
 }
+
+export async function quitApp(): Promise<void> {
+  try {
+    await invoke("quit_app");
+  } catch {
+    // No-op in browser mode or if quit command is unavailable.
+  }
+}

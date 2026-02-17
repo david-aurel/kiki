@@ -7,6 +7,7 @@ interface PrTableProps {
   rows: PullRequestSnapshot[];
   currentUser?: string;
   showAuthor?: boolean;
+  deemphasizeTeamRequests?: boolean;
 }
 
 function stateIcon(state: PullRequestSnapshot["state"]): { className: string; label: string } {
@@ -37,7 +38,14 @@ function groupedReviews(pr: PullRequestSnapshot): Array<{ key: string; emoji: st
     .filter((group) => group.reviewers.length > 0);
 }
 
-export function PrTable({ rows, currentUser, showAuthor = true }: PrTableProps) {
+function estimateEmoji(value: PullRequestSnapshot["estimateNormalized"]): string {
+  if (value === "immediate") return "⚡️";
+  if (value === "half_day") return "🐬";
+  if (value === "one_two_days") return "🐝";
+  return "";
+}
+
+export function PrTable({ rows, currentUser, showAuthor = true, deemphasizeTeamRequests = false }: PrTableProps) {
   if (rows.length === 0) {
     return <p className="kpi">No items found.</p>;
   }
@@ -66,11 +74,12 @@ export function PrTable({ rows, currentUser, showAuthor = true }: PrTableProps) 
           const state = stateIcon(pr.state);
           const ci = ciDot(pr.ciRollup);
           const reviewGroups = groupedReviews(pr);
+          const estimate = estimateEmoji(pr.estimateNormalized);
 
           return (
             <tr
               key={pr.id}
-              className="clickable-row"
+              className={`clickable-row ${deemphasizeTeamRequests && pr.requestOrigin === "team" ? "team-request-row" : ""}`}
               onClick={() => void openExternal(pr.url)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -127,7 +136,7 @@ export function PrTable({ rows, currentUser, showAuthor = true }: PrTableProps) 
                   ))}
                 </div>
               </td>
-              <td>{pr.estimateNormalized}</td>
+              <td className="estimate-cell">{estimate}</td>
             </tr>
           );
         })}

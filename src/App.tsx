@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FocusMode, GitHubNotification, PullRequestSnapshot } from "./core/models/types";
 import { sortReviewRequestsOldestFirst } from "./core/services/prViews";
 import { getSettings, setFocusMode } from "./lib/appState";
-import { loadMyPrs, loadRecentNotifications, loadReviewRequests, syncNow, testGithubConnection } from "./lib/runtime";
+import { loadMyPrs, loadRecentNotifications, loadReviewRequests, quitApp, syncNow, testGithubConnection } from "./lib/runtime";
 import { PrTable } from "./ui/components/PrTable";
 import { RecentNotifications } from "./ui/components/RecentNotifications";
 import { SettingsPanel } from "./ui/components/SettingsPanel";
@@ -161,6 +161,7 @@ export default function App() {
         <div className="topbar-right">
           <button className="secondary" onClick={() => setPaused((v) => !v)}>{paused ? "Resume" : "Pause"}</button>
           <button className="secondary" onClick={() => void runSync()}>Sync</button>
+          <button className="secondary" onClick={() => void quitApp()}>Quit</button>
           <button className="icon-btn settings-btn" onClick={() => setShowSettings((v) => !v)} aria-label="Settings">⚙</button>
         </div>
       </header>
@@ -172,7 +173,7 @@ export default function App() {
               <h2>Review Requests</h2>
               <button className="collapse-btn" onClick={() => toggleSection("review")} aria-label="Collapse review requests">{collapsed.review ? "▸" : "▾"}</button>
             </div>
-            {!collapsed.review ? <div className="section-body"><PrTable rows={sortedReviewRequests} currentUser={viewerLogin} showAuthor /></div> : null}
+            {!collapsed.review ? <div className="section-body"><PrTable rows={sortedReviewRequests} currentUser={viewerLogin} showAuthor deemphasizeTeamRequests /></div> : null}
           </section>
 
           <section className={`section-card panel ${collapsed.my ? "collapsed-y" : ""}`} style={{ flex: collapsed.my ? "0 0 34px" : "1 1 0" }}>
@@ -234,7 +235,7 @@ export default function App() {
           </h2>
         </div>
         <div className="section-body mobile-body">
-          {mobileTab === "review" ? <PrTable rows={sortedReviewRequests} currentUser={viewerLogin} showAuthor /> : null}
+          {mobileTab === "review" ? <PrTable rows={sortedReviewRequests} currentUser={viewerLogin} showAuthor deemphasizeTeamRequests /> : null}
           {mobileTab === "my" ? <PrTable rows={myPrs} currentUser={viewerLogin} showAuthor={false} /> : null}
           {mobileTab === "delivered" ? <RecentNotifications rows={deliveredNotifications} emptyText="No delivered notifications." /> : null}
           {mobileTab === "suppressed" ? <RecentNotifications rows={suppressedNotifications} emptyText="No suppressed notifications." /> : null}

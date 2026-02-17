@@ -105,3 +105,9 @@ pub fn set_tray_state(
 ) -> Result<(), String> {
     tray::set_tray_state(&app, &theme, &focus_mode, animating)
 }
+
+#[tauri::command]
+pub fn quit_app(app: AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}

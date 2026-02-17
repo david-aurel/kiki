@@ -1,7 +1,12 @@
 import type { PullRequestSnapshot } from "../models/types";
 
 export function sortReviewRequestsOldestFirst(prs: PullRequestSnapshot[]): PullRequestSnapshot[] {
-  return [...prs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  return [...prs].sort((a, b) => {
+    const aTeam = a.requestOrigin === "team" ? 1 : 0;
+    const bTeam = b.requestOrigin === "team" ? 1 : 0;
+    if (aTeam !== bTeam) return aTeam - bTeam;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
 }
 
 export function summarizeReviewers(pr: PullRequestSnapshot): string {

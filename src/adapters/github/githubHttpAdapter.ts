@@ -29,6 +29,8 @@ interface PullRequestApi {
   user: { login: string; avatar_url?: string };
   head: { sha: string };
   base: { repo: { full_name: string } };
+  requested_reviewers?: Array<{ login: string }>;
+  requested_teams?: Array<{ slug?: string; name?: string }>;
 }
 
 interface ReviewApi {
@@ -42,15 +44,39 @@ export class GitHubHttpAdapter implements GitHubPort {
 
   async fetchNotifications(tokenRef: string): Promise<GitHubNotification[]> {
     const token = await this.requireToken(tokenRef);
-    const payload = await this.fetchJson<Array<{
+    type NotificationApi = {
       id: string;
       reason: string;
       updated_at: string;
       repository: { full_name: string };
       subject: { type: string; title: string; url?: string; latest_comment_url?: string };
-    }>>(token, "/notifications?all=false&participating=false&per_page=50");
+    };
 
-    return payload.map((item) => ({
+    const allById = new Map<string, NotificationApi>();
+    const scopes = ["participating=true", "participating=false"];
+
+    for (const scope of scopes) {
+      for (let page = 1; page <= 3; page += 1) {
+        const payload = await this.fetchJson<NotificationApi[]>(
+          token,
+          `/notifications?all=false&${scope}&per_page=100&page=${page}`
+        );
+        if (payload.length === 0) break;
+
+        for (const item of payload) {
+          const existing = allById.get(item.id);
+          if (!existing || new Date(item.updated_at).getTime() > new Date(existing.updated_at).getTime()) {
+            allById.set(item.id, item);
+          }
+        }
+
+        if (payload.length < 100) break;
+      }
+    }
+
+    return [...allById.values()]
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .map((item) => ({
       id: item.id,
       reason: item.reason,
       updatedAt: item.updated_at,
@@ -190,6 +216,7 @@ export class GitHubHttpAdapter implements GitHubPort {
     const hydrated = await Promise.all(
       [...resultById.values()].map(async (entry) => {
         const [snapshot] = await this.hydrateSnapshots(token, [entry.item], {
+          viewerLogin: login,
           requestOrigin: entry.requestOrigin,
           requestedBy: entry.requestedBy
         });
@@ -253,7 +280,7 @@ export class GitHubHttpAdapter implements GitHubPort {
   private async hydrateSnapshots(
     token: string,
     items: SearchItem[],
-    overrides: { requestOrigin?: "direct" | "team"; requestedBy?: string }
+    overrides: { viewerLogin?: string; requestOrigin?: "direct" | "team"; requestedBy?: string }
   ): Promise<PullRequestSnapshot[]> {
     return Promise.all(
       items.map(async (item) => {
@@ -299,8 +326,26 @@ export class GitHubHttpAdapter implements GitHubPort {
           estimateNormalized: estimate.normalized
         };
 
-        if (overrides.requestOrigin) snapshot.requestOrigin = overrides.requestOrigin;
-        if (overrides.requestedBy) snapshot.requestedBy = overrides.requestedBy;
+        // Prefer authoritative request origin from PR payload to correctly classify
+        // codeowner/team-driven requests that may appear in review-requested search.
+        const requestedReviewers = pr.requested_reviewers || [];
+        const requestedTeams = pr.requested_teams || [];
+        const viewer = overrides.viewerLogin?.toLowerCase();
+        const isDirectForViewer = viewer
+          ? requestedReviewers.some((reviewer) => reviewer.login?.toLowerCase() === viewer)
+          : false;
+        const hasTeamRequest = requestedTeams.length > 0;
+
+        if (isDirectForViewer) {
+          snapshot.requestOrigin = "direct";
+          snapshot.requestedBy = overrides.viewerLogin;
+        } else if (hasTeamRequest) {
+          snapshot.requestOrigin = "team";
+          snapshot.requestedBy = requestedTeams[0]?.slug || requestedTeams[0]?.name || overrides.requestedBy;
+        } else {
+          if (overrides.requestOrigin) snapshot.requestOrigin = overrides.requestOrigin;
+          if (overrides.requestedBy) snapshot.requestedBy = overrides.requestedBy;
+        }
 
         return snapshot;
       })

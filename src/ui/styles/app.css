@@ -274,6 +274,10 @@ a:hover { text-decoration: none; }
   background: var(--surface-hover);
 }
 
+.team-request-row td {
+  opacity: 0.58;
+}
+
 .badge {
   display: inline-block;
   border: 1px solid var(--line);
@@ -411,6 +415,11 @@ a:hover { text-decoration: none; }
   margin-left: 3px;
   font-size: 10px;
   color: var(--muted);
+}
+
+.estimate-cell {
+  font-size: 14px;
+  letter-spacing: 0;
 }
 
 .notification-list {

@@ -16,7 +16,8 @@ fn main() {
             commands::db_list_deliveries,
             commands::db_list_suppressions,
             commands::open_external_url,
-            commands::set_tray_state
+            commands::set_tray_state,
+            commands::quit_app
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -31,6 +32,12 @@ fn main() {
         })
         .on_menu_event(|app, event| {
             tray::handle_menu_event(app, event);
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running kiki");

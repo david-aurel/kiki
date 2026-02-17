@@ -804,3 +804,65 @@ kiki/
   - This allows clicks in empty drawer area (including below content) to bubble to overlay close handler.
 - UX polish: added a small close button in settings header.
   - `SettingsPanel` now accepts `onClose` and renders a top-right `×` icon button.
+
+### 2026-02-16 Session (Twenty-Third Pass)
+- Review requests behavior change:
+  - Split ordering by request origin:
+    - direct requests first
+    - team requests second
+  - Within each group, keep oldest-first ordering.
+- Visual hierarchy change:
+  - Team-origin review requests are now muted/greyed out in the review-request table (desktop + mobile).
+  - Direct requests remain normal emphasis.
+
+### 2026-02-16 Session (Twenty-Fourth Pass)
+- Classification fix for review request origin:
+  - Switched origin detection from search-source assumptions to authoritative PR fields:
+    - `requested_reviewers`
+    - `requested_teams`
+  - This correctly classifies code-owner/team-driven requests as `team` even when they appear in broad review search results.
+- Behavior impact:
+  - Team/codeowner requests now consistently appear in the lower (muted) segment.
+  - Direct requests remain in the top, normal-emphasis segment.
+
+### 2026-02-16 Session (Twenty-Fifth Pass)
+- Reliability fix for missing comment notifications:
+  - Expanded GitHub notifications ingestion in `GitHubHttpAdapter.fetchNotifications`:
+    - fetches up to 3 pages at `per_page=100` (unread window widened from only first 50)
+    - merges both `participating=true` and `participating=false` scopes
+    - deduplicates by notification `id` and keeps latest `updated_at`
+    - sorts merged stream by newest `updated_at` before mapping
+- Expected impact:
+  - comment events are less likely to be dropped in high-volume repos/organizations
+  - delivered/suppressed panels and Slack delivery now see the same widened notification source.
+
+### 2026-02-16 Session (Twenty-Sixth Pass)
+- Estimate parsing finalized to the agreed PR description markers:
+  - `**⚡️ Immediate**`
+  - `**🐬 Half working day**`
+  - `**🐝 1-2 days**`
+- Parser behavior:
+  - matches line-based markers case-insensitively
+  - accepts both bold markdown and plain-line forms
+- Test coverage expanded:
+  - immediate / half-day / 1-2 days all mapped
+  - plain (non-bold) marker form covered
+  - unknown fallback preserved.
+
+### 2026-02-16 Session (Twenty-Seventh Pass)
+- Estimate ambiguity rule tightened:
+  - if multiple conflicting estimate markers are present in PR description, estimate resolves to `unknown`.
+  - only a single unambiguous marker yields a known estimate.
+- Estimate table rendering updated:
+  - known estimates render emoji only:
+    - `⚡️`, `🐬`, `🐝`
+  - `unknown` renders as an empty cell.
+
+### 2026-02-16 Session (Twenty-Eighth Pass)
+- Native app lifecycle update:
+  - Closing the main window now hides it instead of quitting the app.
+  - App continues running in menu bar/tray for background notification delivery.
+  - Implemented via Tauri `on_window_event` handler for `CloseRequested` with `prevent_close()` + `window.hide()`.
+- Explicit full-quit action:
+  - Added `quit_app` Tauri command.
+  - Added top-bar `Quit` button next to `Pause` and `Sync` to fully terminate the app process.
