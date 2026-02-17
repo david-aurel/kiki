@@ -2,6 +2,7 @@ use tauri::{
     include_image,
     image::Image,
     menu::{Menu, MenuEvent, MenuItem},
+    ActivationPolicy,
     App, AppHandle, Manager,
     Runtime,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -64,6 +65,9 @@ pub fn handle_tray_event<R: Runtime>(app: &AppHandle<R>, event: TrayIconEvent) {
         ..
     } = event
     {
+        #[cfg(target_os = "macos")]
+        app.set_activation_policy(ActivationPolicy::Regular).ok();
+
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.show();
             let _ = window.set_focus();
@@ -75,6 +79,9 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
     match event.id().as_ref() {
         "quit" => app.exit(0),
         "open" => {
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(ActivationPolicy::Regular).ok();
+
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();

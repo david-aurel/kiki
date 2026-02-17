@@ -4,6 +4,8 @@ mod commands;
 mod db;
 mod tray;
 
+use tauri::{include_image, Manager};
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -21,7 +23,15 @@ fn main() {
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            {
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_icon(include_image!("icons/icon.png"));
+                    if window.is_visible().unwrap_or(false) {
+                        app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                    }
+                }
+            }
 
             db::init_db(app).map_err(std::io::Error::other)?;
             tray::setup_tray(app)?;
@@ -34,9 +44,24 @@ fn main() {
             tray::handle_menu_event(app, event);
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    #[cfg(target_os = "macos")]
+                    window
+                        .app_handle()
+                        .set_activation_policy(tauri::ActivationPolicy::Accessory)
+                        .ok();
+                }
+                tauri::WindowEvent::Focused(true) => {
+                    #[cfg(target_os = "macos")]
+                    window
+                        .app_handle()
+                        .set_activation_policy(tauri::ActivationPolicy::Regular)
+                        .ok();
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())

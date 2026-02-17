@@ -866,3 +866,46 @@ kiki/
 - Explicit full-quit action:
   - Added `quit_app` Tauri command.
   - Added top-bar `Quit` button next to `Pause` and `Sync` to fully terminate the app process.
+
+### 2026-02-16 Session (Twenty-Ninth Pass)
+- Native macOS Dock visibility made dynamic:
+  - When app window is shown via tray click or tray menu `Open`, activation policy switches to `Regular` (Dock icon + cmd-tab presence).
+  - When user closes window, close is intercepted (hide instead of quit) and activation policy switches back to `Accessory` (menu bar only).
+- Resulting behavior:
+  - app keeps running in menu bar for background delivery
+  - Dock icon appears only while window is visible.
+
+### 2026-02-16 Session (Thirtieth Pass)
+- Dock visibility startup fix:
+  - On app startup, if main window is already visible, activation policy is now promoted to `Regular`.
+  - Prevents launch state where window is visible but app remains `Accessory` and absent from Dock/cmd-tab.
+- Existing dynamic behavior preserved:
+  - close/hide -> `Accessory`
+  - focus/open from tray -> `Regular`
+
+### 2026-02-16 Session (Thirty-First Pass)
+- Dock icon source fix:
+  - Reused tray brand asset as app icon source by setting:
+    - `src-tauri/icons/icon.png` (copied from tray focus icon)
+    - `src-tauri/tauri.conf.json` -> `bundle.icon: ["icons/icon.png"]`
+- Notes:
+  - Tauri config in this project version does not support per-window `icon` field; icon must come from bundle settings.
+
+### 2026-02-16 Session (Thirty-Second Pass)
+- macOS Dock icon reliability update:
+  - Generated a proper `src-tauri/icons/icon.icns` via `tauri icon`.
+  - Updated bundle icon config to include `icon.icns` and `icon.png`.
+- Added runtime fallback in Tauri setup:
+  - explicitly sets main window icon from `icons/icon.png` for dev runtime consistency.
+
+### 2026-02-17 Session (Thirty-Third Pass)
+- Dock icon corruption fix:
+  - Regenerated app icon assets from official raster brand source (`inspiration/icon.png`) instead of tray/symbol-only sources.
+  - Built fresh `src-tauri/icons/icon.icns` + `src-tauri/icons/icon.png` via `tauri icon` from a square-padded source image.
+- Goal:
+  - ensure bundled macOS app uses a valid, full-fidelity ICNS icon (not garbled/pixel-noise).
+
+### 2026-02-17 Session (Thirty-Fourth Pass)
+- Dock icon visual adjustment:
+  - Switched app icon generation source to glyph-only tray mark (`src-tauri/icons/tray-focus-light.png`) to avoid nested rounded-square look in macOS Dock.
+  - Regenerated full icon set (`icon.icns`, `icon.png`, etc.) with `tauri icon`.
