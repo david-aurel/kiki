@@ -2,10 +2,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FocusMode, GitHubNotification, PullRequestSnapshot } from "./core/models/types";
 import { sortReviewRequestsOldestFirst } from "./core/services/prViews";
 import { getSettings, setFocusMode } from "./lib/appState";
-import { loadMyPrs, loadRecentNotifications, loadReviewRequests, quitApp, syncNow, testGithubConnection } from "./lib/runtime";
+import {
+  loadDebugNotificationProbe,
+  loadDebugNotifications,
+  loadMyPrs,
+  loadRecentNotifications,
+  loadReviewRequests,
+  quitApp,
+  sendSlackDebugEvent,
+  syncNow,
+  testGithubConnection
+} from "./lib/runtime";
+import type { NotificationProbeSnapshot, SlackDebugEventType } from "./lib/runtime";
 import { PrTable } from "./ui/components/PrTable";
 import { RecentNotifications } from "./ui/components/RecentNotifications";
 import { SettingsPanel } from "./ui/components/SettingsPanel";
+import { DebugPanel } from "./ui/components/DebugPanel";
 import { KikiStateIcon } from "./ui/components/KikiStateIcon";
 import { updateTrayState } from "./lib/runtime";
 import "./ui/styles/app.css";
@@ -24,6 +36,7 @@ export default function App() {
   const [status, setStatus] = useState("Ready");
   const [paused, setPaused] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const [viewerLogin, setViewerLogin] = useState("");
   const [myPrs, setMyPrs] = useState<PullRequestSnapshot[]>([]);
   const [reviewRequests, setReviewRequests] = useState<PullRequestSnapshot[]>([]);
@@ -40,6 +53,10 @@ export default function App() {
     suppressed: false
   });
   const [mobileTab, setMobileTab] = useState<SectionTab>("review");
+  const [debugRows, setDebugRows] = useState<GitHubNotification[]>([]);
+  const [debugProbeRows, setDebugProbeRows] = useState<NotificationProbeSnapshot[]>([]);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugError, setDebugError] = useState<string | null>(null);
   const [focusTransition, setFocusTransition] = useState<FocusMode | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">(() => (
     window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
@@ -49,32 +66,106 @@ export default function App() {
   const sortedReviewRequests = useMemo(() => sortReviewRequestsOldestFirst(reviewRequests), [reviewRequests]);
 
   const refreshAll = useCallback(async (successMessage: string): Promise<void> => {
-    try {
-      const [my, reviews, recents, login] = await Promise.all([
-        loadMyPrs(),
-        loadReviewRequests(),
-        loadRecentNotifications(12),
-        testGithubConnection()
-      ]);
-      setMyPrs(my);
-      setReviewRequests(reviews);
-      setNotifications(recents);
-      setViewerLogin(login);
+    const [my, reviews, recents, login] = await Promise.allSettled([
+      loadMyPrs(),
+      loadReviewRequests(),
+      loadRecentNotifications(12),
+      testGithubConnection()
+    ]);
+
+    const errors: string[] = [];
+
+    if (my.status === "fulfilled") setMyPrs(my.value);
+    else errors.push(`my PRs: ${my.reason instanceof Error ? my.reason.message : String(my.reason)}`);
+
+    if (reviews.status === "fulfilled") setReviewRequests(reviews.value);
+    else errors.push(`review requests: ${reviews.reason instanceof Error ? reviews.reason.message : String(reviews.reason)}`);
+
+    if (recents.status === "fulfilled") setNotifications(recents.value);
+    else errors.push(`notifications: ${recents.reason instanceof Error ? recents.reason.message : String(recents.reason)}`);
+
+    if (login.status === "fulfilled") setViewerLogin(login.value);
+    else errors.push(`viewer: ${login.reason instanceof Error ? login.reason.message : String(login.reason)}`);
+
+    if (errors.length === 0) {
       setStatus(successMessage);
-    } catch (error) {
-      setStatus(`Data refresh failed: ${(error as Error).message}`);
+    } else {
+      setStatus(`${successMessage} (partial): ${errors.join(" | ")}`);
     }
   }, []);
 
-  const runSync = useCallback(async (successMessage = "Sync complete"): Promise<void> => {
+  const refreshNotificationsOnly = useCallback(async (successMessage: string): Promise<void> => {
+    const recents = await Promise.allSettled([loadRecentNotifications(12)]);
+    if (recents[0].status === "fulfilled") {
+      setNotifications(recents[0].value);
+      setStatus(successMessage);
+    } else {
+      setStatus(
+        `${successMessage} (partial): notifications: ${
+          recents[0].reason instanceof Error ? recents[0].reason.message : String(recents[0].reason)
+        }`
+      );
+    }
+  }, []);
+
+  const runSync = useCallback(
+    async (successMessage = "Sync complete", refreshMode: "full" | "notifications" = "full"): Promise<void> => {
     setStatus("Syncing...");
     try {
       const result = await syncNow();
-      await refreshAll(`${successMessage}: scanned=${result.scanned}, delivered=${result.delivered}, suppressed=${result.suppressed}`);
+      const summary =
+        `${successMessage}: scanned=${result.scanned}, delivered=${result.delivered}, suppressed=${result.suppressed}, failed=${result.failed}`;
+      if (refreshMode === "full") {
+        await refreshAll(summary);
+      } else {
+        await refreshNotificationsOnly(summary);
+      }
     } catch (error) {
-      setStatus(`Sync failed: ${(error as Error).message}`);
+      const failMessage = `Sync failed: ${(error as Error).message}`;
+      if (refreshMode === "full") {
+        await refreshAll(failMessage);
+      } else {
+        await refreshNotificationsOnly(failMessage);
+      }
     }
-  }, [refreshAll]);
+  }, [refreshAll, refreshNotificationsOnly]);
+
+  const refreshDebug = useCallback(async (): Promise<void> => {
+    setDebugLoading(true);
+    setDebugError(null);
+    setDebugRows([]);
+    setDebugProbeRows([]);
+
+    const [rows, probe] = await Promise.allSettled([
+      loadDebugNotifications(250),
+      loadDebugNotificationProbe()
+    ]);
+
+    const errors: string[] = [];
+    if (rows.status === "fulfilled") {
+      setDebugRows(rows.value);
+    } else {
+      errors.push(`rows: ${rows.reason instanceof Error ? rows.reason.message : String(rows.reason)}`);
+    }
+
+    if (probe.status === "fulfilled") {
+      setDebugProbeRows(probe.value);
+    } else {
+      errors.push(`probe: ${probe.reason instanceof Error ? probe.reason.message : String(probe.reason)}`);
+    }
+
+    if (errors.length > 0) {
+      setDebugError(errors.join(" | "));
+    }
+
+    setDebugLoading(false);
+  }, []);
+
+  const runSlackDebugEvent = useCallback(async (type: SlackDebugEventType): Promise<string> => {
+    const message = await sendSlackDebugEvent(type);
+    setStatus(message);
+    return message;
+  }, []);
 
   useEffect(() => {
     void refreshAll("Initial sync complete");
@@ -84,11 +175,16 @@ export default function App() {
     if (paused) return;
 
     const timer = window.setInterval(() => {
-      void runSync("Background sync complete");
+      void runSync("Background sync complete", "notifications");
     }, 180000);
 
     return () => window.clearInterval(timer);
   }, [paused, runSync]);
+
+  useEffect(() => {
+    if (!showDebug) return;
+    void refreshDebug();
+  }, [showDebug, refreshDebug]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -162,6 +258,7 @@ export default function App() {
         <div className="topbar-right">
           <button className="secondary" onClick={() => setPaused((v) => !v)}>{paused ? "Resume" : "Pause"}</button>
           <button className="secondary" onClick={() => void runSync()}>Sync</button>
+          <button className="secondary" onClick={() => setShowDebug(true)}>Debug</button>
           <button className="secondary" onClick={() => void quitApp()}>Quit</button>
           <button className="icon-btn settings-btn" onClick={() => setShowSettings((v) => !v)} aria-label="Settings">⚙</button>
         </div>
@@ -259,6 +356,22 @@ export default function App() {
             <div className="settings-shell" onClick={(event) => event.stopPropagation()}>
               <SettingsPanel onSaved={setStatus} onClose={() => setShowSettings(false)} />
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showDebug ? (
+        <div className="debug-overlay" onClick={() => setShowDebug(false)}>
+          <div className="debug-shell" onClick={(event) => event.stopPropagation()}>
+            <DebugPanel
+              rows={debugRows}
+              probeRows={debugProbeRows}
+              loading={debugLoading}
+              error={debugError}
+              onRefresh={() => void refreshDebug()}
+              onSendSlackTest={runSlackDebugEvent}
+              onClose={() => setShowDebug(false)}
+            />
           </div>
         </div>
       ) : null}

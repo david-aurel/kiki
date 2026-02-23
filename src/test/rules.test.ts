@@ -35,6 +35,12 @@ describe("delivery decisions", () => {
     isCiStateChange: false
   };
 
+  it("keeps review comments distinct from normal comments", () => {
+    const reviewComment = { ...base, reason: "review_commented", category: "review_commented" as const };
+    const normalComment = { ...base, reason: "comment", category: "comment" as const };
+    expect(reviewComment.category).not.toBe(normalComment.category);
+  });
+
   it("suppresses copilot", () => {
     const decision = getDeliveryDecision(
       { ...base, latestCommentActor: "github-copilot[bot]" },
@@ -43,9 +49,56 @@ describe("delivery decisions", () => {
     expect(decision.action).toBe("suppress");
   });
 
+  it("suppresses known copilot reviewer bot in calm mode", () => {
+    const decision = getDeliveryDecision(
+      { ...base, latestCommentActor: "copilot-pull-request-reviewer[bot]" },
+      { ...defaultRuleConfig, focusMode: "calm" }
+    );
+    expect(decision.action).toBe("suppress");
+  });
+
+  it("does not suppress copilot in all mode", () => {
+    const decision = getDeliveryDecision(
+      { ...base, latestCommentActor: "github-copilot[bot]" },
+      { ...defaultRuleConfig, focusMode: "all" }
+    );
+    expect(decision.action).toBe("deliver");
+  });
+
   it("filters by focus", () => {
     const rule = { ...defaultRuleConfig, focusMode: "focused" as const };
     const nonPersonal = { ...base, isPersonalPrActivity: false };
     expect(matchesFocus(nonPersonal, rule)).toBe(false);
+  });
+
+  it("suppresses team-only review requests outside all mode", () => {
+    const decision = getDeliveryDecision(
+      {
+        ...base,
+        reason: "review_requested",
+        isReviewRequest: true,
+        isDirectReviewRequest: false,
+        isTeamReviewRequest: true,
+        isPersonalPrActivity: false
+      },
+      { ...defaultRuleConfig, focusMode: "calm" }
+    );
+    expect(decision.action).toBe("suppress");
+    expect(decision.reason).toBe("team_review_request_suppressed_outside_all");
+  });
+
+  it("delivers direct review requests in calm mode", () => {
+    const decision = getDeliveryDecision(
+      {
+        ...base,
+        reason: "review_requested",
+        isReviewRequest: true,
+        isDirectReviewRequest: true,
+        isTeamReviewRequest: true,
+        isPersonalPrActivity: false
+      },
+      { ...defaultRuleConfig, focusMode: "calm" }
+    );
+    expect(decision.action).toBe("deliver");
   });
 });

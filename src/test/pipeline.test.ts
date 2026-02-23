@@ -98,10 +98,11 @@ describe("notification pipeline", () => {
     );
 
     expect(result.delivered).toBe(1);
+    expect(result.failed).toBe(0);
     expect(sent).toEqual(["Title"]);
   });
 
-  it("suppresses copilot based on resolved latest actor", async () => {
+  it("suppresses copilot when actor is known on notification", async () => {
     const github = makeGithubPort({
       async fetchNotifications() {
         return [
@@ -112,13 +113,10 @@ describe("notification pipeline", () => {
             repositoryFullName: "acme/kiki",
             subjectType: "PullRequest",
             subjectTitle: "Title",
-            latestCommentUrl: "https://api.github.com/comment/1",
+            latestCommentActor: "github-copilot[bot]",
             isPersonalPrActivity: true
           }
         ];
-      },
-      async resolveLatestCommentActor() {
-        return "github-copilot[bot]";
       }
     });
 
@@ -163,6 +161,86 @@ describe("notification pipeline", () => {
     );
 
     expect(result.suppressed).toBe(1);
+    expect(result.failed).toBe(0);
     expect(suppressions[0]).toBe("latest_comment_from_github_copilot_bot");
+  });
+
+  it("continues processing when one Slack delivery fails", async () => {
+    const sent: string[] = [];
+    const processed = new Set<string>();
+    let callCount = 0;
+
+    const github = makeGithubPort({
+      async fetchNotifications() {
+        return [
+          {
+            id: "x1",
+            reason: "mention",
+            updatedAt: "2026-02-18T10:00:00.000Z",
+            repositoryFullName: "acme/kiki",
+            subjectType: "PullRequest",
+            subjectTitle: "First",
+            isPersonalPrActivity: true
+          },
+          {
+            id: "x2",
+            reason: "mention",
+            updatedAt: "2026-02-18T11:00:00.000Z",
+            repositoryFullName: "acme/kiki",
+            subjectType: "PullRequest",
+            subjectTitle: "Second",
+            isPersonalPrActivity: true
+          }
+        ];
+      },
+      formatSlackMessage(notification) {
+        return notification.subjectTitle;
+      }
+    });
+
+    const slack: SlackPort = {
+      async sendMessage(_tokenRef, _userId, text) {
+        callCount += 1;
+        if (callCount === 1) throw new Error("temporary Slack error");
+        sent.push(text);
+      },
+      async testConnection() {
+        return "ok";
+      }
+    };
+
+    const store: StorePort = {
+      async hasProcessedKey(key) {
+        return processed.has(key);
+      },
+      async logDelivery(entry) {
+        processed.add(entry.key);
+      },
+      async logSuppression(entry) {
+        processed.add(entry.key);
+      },
+      async listDeliveries() {
+        return [];
+      },
+      async listSuppressions() {
+        return [];
+      }
+    };
+
+    const result = await runNotificationPipeline(
+      { github, slack, store },
+      {
+        userId: "u1",
+        slackUserId: "U123",
+        githubTokenRef: "gh",
+        slackTokenRef: "sl",
+        rules: { ...defaultRuleConfig, focusMode: "all" }
+      }
+    );
+
+    expect(result.scanned).toBe(2);
+    expect(result.delivered).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(sent).toEqual(["Second"]);
   });
 });

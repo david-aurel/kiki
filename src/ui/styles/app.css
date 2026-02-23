@@ -591,6 +591,100 @@ button.secondary { padding: 7px 10px; }
   width: 100%;
 }
 
+.debug-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 12, 0.52);
+  display: grid;
+  place-items: center;
+  z-index: 55;
+}
+
+.debug-shell {
+  width: min(1320px, 96vw);
+  height: min(86vh, 920px);
+}
+
+.debug-modal {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.debug-head h3 {
+  margin: 0;
+}
+
+.debug-summary {
+  padding: 0 2px;
+}
+
+.debug-slack-tools {
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.debug-probe {
+  padding: 8px;
+}
+
+.debug-probe h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.debug-probe-table th,
+.debug-probe-table td {
+  font-size: 11px;
+  padding: 6px 7px;
+}
+
+.debug-probe-sample {
+  display: grid;
+  gap: 3px;
+  min-width: 340px;
+}
+
+.debug-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.debug-table th,
+.debug-table td {
+  font-size: 12px;
+}
+
+.debug-table th,
+.debug-probe-table th {
+  position: static;
+  top: auto;
+  z-index: auto;
+}
+
+.debug-flags {
+  display: inline-flex;
+  gap: 6px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .settings-header {
   display: flex;
   align-items: center;

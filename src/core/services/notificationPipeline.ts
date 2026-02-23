@@ -17,6 +17,7 @@ export interface PipelineResult {
   delivered: number;
   suppressed: number;
   skipped: number;
+  failed: number;
 }
 
 export async function runNotificationPipeline(
@@ -28,6 +29,7 @@ export async function runNotificationPipeline(
   let delivered = 0;
   let suppressed = 0;
   let skipped = 0;
+  let failed = 0;
 
   for (const notification of notifications) {
     const key = deliveryKey(input.userId, notification);
@@ -36,14 +38,18 @@ export async function runNotificationPipeline(
       continue;
     }
 
-    await processNotification(deps, input, notification, key)
-      .then((result) => {
-        if (result === "deliver") delivered += 1;
-        else suppressed += 1;
-      });
+    try {
+      const result = await processNotification(deps, input, notification, key);
+      if (result === "deliver") delivered += 1;
+      else suppressed += 1;
+    } catch {
+      // Keep sync progressing even if one delivery attempt fails.
+      // Failed items are not marked processed and will be retried on next sync.
+      failed += 1;
+    }
   }
 
-  return { scanned: notifications.length, delivered, suppressed, skipped };
+  return { scanned: notifications.length, delivered, suppressed, skipped, failed };
 }
 
 async function processNotification(
@@ -52,9 +58,7 @@ async function processNotification(
   notification: GitHubNotification,
   key: string
 ): Promise<"deliver" | "suppress"> {
-  const shouldResolveCopilotActor =
-    input.rules.suppressCopilot || input.rules.focusMode === "calm" || input.rules.focusMode === "focused";
-  const enriched = await maybeEnrichCopilotActor(deps.github, input.githubTokenRef, notification, shouldResolveCopilotActor);
+  const enriched = notification;
   const decision = getDeliveryDecision(enriched, input.rules);
 
   if (decision.action === "suppress") {
@@ -79,18 +83,4 @@ async function processNotification(
   });
 
   return "deliver";
-}
-
-async function maybeEnrichCopilotActor(
-  github: GitHubPort,
-  tokenRef: string,
-  notification: GitHubNotification,
-  suppressCopilot: boolean
-): Promise<GitHubNotification> {
-  if (!suppressCopilot || notification.latestCommentActor || !notification.latestCommentUrl) {
-    return notification;
-  }
-
-  const actor = await github.resolveLatestCommentActor(tokenRef, notification);
-  return { ...notification, latestCommentActor: actor || undefined };
 }

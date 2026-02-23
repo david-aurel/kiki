@@ -913,4 +913,258 @@ kiki/
 ### 2026-02-17 Session (Thirty-Fifth Pass)
 - Desktop layout collapse behavior fix:
   - When both right-side notification columns (`Delivered` and `Suppressed`) are collapsed, desktop grid now switches from fixed `620px` right column to `auto`.
-  - This allows PR sections to reclaim horizontal space instead of leaving a large empty reserved area.
+- This allows PR sections to reclaim horizontal space instead of leaving a large empty reserved area.
+
+### 2026-02-17 Session (Thirty-Sixth Pass)
+- Added Notification Debug window for reliability triage.
+  - Topbar now includes a `Debug` button next to `Pause`, `Sync`, `Quit`.
+  - Debug modal shows raw fetched GitHub notifications (up to 250), including:
+    - updated timestamp
+    - reason
+    - category
+    - deliver/suppress decision
+    - decision reason
+    - flags (`isPersonalPrActivity`, `isReviewRequest`, `isDirectMention`)
+    - notification id
+  - Rows are clickable to open target URL.
+- Added runtime debug fetch path:
+  - `loadDebugNotifications()` fetches full inbox window (post-merge/pagination path), enriches, and applies delivery decision for visibility.
+
+### 2026-02-17 Session (Thirty-Seventh Pass)
+- Added direct GitHub Notifications API probe in Debug window to separate endpoint issues from app logic issues.
+  - Probe runs page-1 snapshots for:
+    - `all=false, participating=false`
+    - `all=false, participating=true`
+    - `all=true, participating=false`
+    - `all=true, participating=true`
+  - Each row shows:
+    - count
+    - latest `updated_at` timestamp
+- Purpose:
+  - quickly verify whether missing notifications are absent from GitHub endpoint responses or dropped in Kiki processing/filtering.
+
+### 2026-02-17 Session (Thirty-Eighth Pass)
+- Notification source behavior change:
+  - Switched main inbox ingestion from `all=false` to `all=true`.
+- Rationale: notifications read elsewhere (e.g. GitHub UI) should still be ingested and can still be delivered/shown in Kiki.
+
+### 2026-02-17 Session (Thirty-Ninth Pass)
+- Refresh reliability fix:
+  - Replaced all-or-nothing `Promise.all` refresh with `Promise.allSettled` in app refresh flow.
+  - Notifications now update even if another section fetch fails (e.g., review requests or viewer login).
+  - Status line now reports partial refresh errors without freezing stale notification data.
+
+### 2026-02-17 Session (Fortieth Pass)
+- GitHub notification freshness and debug hardening:
+  - GitHub adapter now forces uncached notifications fetches with:
+    - `cache: "no-store"` (web mode)
+    - cache-busting query stamp (`_kiki_ts`)
+    - no-cache headers
+  - Notification probe expanded to include additional slices (`all=true p2`, `since24h`) and now reports per-query errors instead of failing whole probe.
+- Tauri-native GitHub transport added:
+  - Added `github_api_get` Tauri command (reqwest-based) and wired GitHub adapter to use it when running in Tauri.
+  - Goal: bypass WebView fetch/network quirks and make GitHub fetch behavior deterministic in desktop mode.
+- Notification enrichment resilience:
+  - Per-notification enrichment/actor lookups are now best-effort and no longer allowed to fail entire notification refresh/debug loads.
+  - Debug refresh now clears stale rows first and uses `Promise.allSettled` so rows/probes are independently visible with explicit errors.
+
+### 2026-02-17 Session (Forty-First Pass)
+- Native command hang fix:
+  - Converted Tauri network commands (`github_api_get`, `slack_api_call`) from blocking reqwest to async reqwest.
+  - Added explicit network timeouts:
+    - connect timeout: 8s
+    - overall timeout: 20s
+- Rationale:
+  - previous blocking/no-timeout behavior could stall app startup/refresh indefinitely when network conditions were poor or proxy routing was slow.
+
+### 2026-02-17 Session (Forty-Second Pass)
+- Notification semantics refinement:
+  - Added richer notification categories:
+    - `review_request`, `comment`, `mention`, `assignment`, `review_approved`, `review_changes_requested`, `review_commented`, `ci`, `update`.
+  - Added `occurredAt` timestamp on notification model for event-time display.
+- Timestamp source-of-truth:
+  - Notification age in UI now uses `occurredAt` (when available from GitHub event payloads) with fallback to notification `updated_at`.
+- Actor attribution fixes:
+  - `review_requested` notifications now prefer PR author (from PR subject payload) and no longer get overwritten by latest commenter.
+  - `comment`/`mention` notifications now prefer latest comment actor + preview text.
+- Update/review-result mapping:
+  - For PR update-like reasons (`author`, `state_change`), app now attempts to resolve latest review outcome and map to:
+    - approved / changes requested / review commented
+  - Reviewer identity and review link are attached when resolvable, so avatar/label better reflects who reviewed.
+  - Safety guard: review outcome is only attached when review timestamp is close to notification timestamp (24h window) to reduce misclassification from stale historical reviews.
+
+### 2026-02-17 Session (Forty-Third Pass)
+- Mention/comment behavior correction:
+  - `mention` and `team_mention` are now normalized to comment notifications (not generic updates).
+  - For comment-like notifications, adapter now backfills `latest_comment_url` via thread lookup (`/notifications/threads/{id}`) when missing.
+  - Comment cards now prioritize:
+    - deep link to exact comment (`comment.html_url`)
+    - commenter actor/avatar
+    - first comment text as preview
+- Actor fallback guard:
+  - disabled subject-owner actor fallback for comment-like notifications to prevent self-avatar misattribution on personal PRs.
+- Review assignment handling:
+  - `assign` reason added to review-outcome candidate reasons, so reviewer identity + deep link to specific review can be resolved when the assignment corresponds to review activity.
+
+### 2026-02-19 Session (Forty-Fourth Pass)
+- Sync reliability hardening:
+  - Root cause identified: a single Slack delivery failure could abort the whole sync run, and then UI refresh would not execute, leaving stale notification cards visible.
+- Fixes applied:
+  - `runNotificationPipeline` now catches per-notification processing errors and continues scanning remaining notifications.
+  - Added `failed` counter to pipeline result for visibility (`scanned/delivered/suppressed/skipped/failed`).
+  - `runSync` now always triggers a UI refresh path even when sync throws, preventing stale data lock-in.
+- Guardrails:
+  - Failed items are intentionally not marked processed, so they retry on next sync.
+  - Added regression test: one Slack send fails, remaining notifications still process and result reports `failed=1`.
+
+### 2026-02-19 Session (Forty-Fifth Pass)
+- Notification ingestion architecture switched fully (no feature flag) to a hybrid source:
+  - REST `/notifications` is now used only for `review_requested` items.
+  - GraphQL is now the source of truth for activity on authored PRs (comments + reviews).
+- GraphQL-derived notifications:
+  - Issue comments on your PRs by other users -> `comment` notifications with:
+    - actor/avatar from comment author
+    - preview text from comment body
+    - deep link to exact comment URL
+  - Reviews on your PRs by other users -> `review_approved` / `review_changes_requested` / `review_commented` with:
+    - actor/avatar from reviewer
+    - deep link to review URL
+    - preview text from review body when available
+- Source merge behavior:
+  - REST review requests + GraphQL PR activity are merged, deduped by id, and sorted by event timestamp.
+  - If one source fails, the other source still renders; full failure only occurs if both sources fail.
+- Runtime transport updates:
+  - Added native Tauri command `github_api_graphql` for reliable GraphQL POST requests.
+  - Browser mode uses direct `POST https://api.github.com/graphql`.
+- Debug wording updated:
+  - debug panel now explicitly states notifications are from merged REST+GraphQL sources.
+
+### 2026-02-19 Session (Forty-Sixth Pass)
+- Review-request delivery behavior refined for focus modes:
+  - Team-only review requests are now suppressed (but still shown in UI) for all modes except `all`.
+  - Direct review requests (explicitly requested reviewer is the viewer) continue to be deliverable in `calm`.
+- Implementation details:
+  - Review-request notifications are now enriched at fetch time with:
+    - `isDirectReviewRequest`
+    - `isTeamReviewRequest`
+  - Decision rule now suppresses `isTeamReviewRequest && !isDirectReviewRequest` when mode is not `all`.
+- Added rule tests covering:
+  - suppression of team-only review requests in `calm`
+  - delivery of direct review requests in `calm`
+
+### 2026-02-19 Session (Forty-Seventh Pass)
+- GraphQL comment ingestion gap fix:
+  - Added pull-request `reviewThreads` comment ingestion (in addition to PR conversation comments).
+  - This captures inline code review comments, which are the common review comment type and were previously missing from notifications.
+- Mapping:
+  - Review-thread comments now produce `comment` notifications with:
+    - commenter actor/avatar
+    - preview text from comment body
+    - deep link to exact comment URL
+- Debugability:
+  - Added `graphql my_pr_activity` probe row in Debug panel to show count/latest/top for GraphQL-derived activity notifications (or explicit query error).
+
+### 2026-02-19 Session (Forty-Eighth Pass)
+- GraphQL reliability hardening for PR activity:
+  - Split GraphQL ingestion into:
+    - core activity query (PR conversation comments + reviews)
+    - optional review-thread comments query
+  - Review-thread query failure no longer blocks all GraphQL activity notifications.
+- Pagination compatibility fallback:
+  - Each query now tries `last` pagination first, then falls back to `first` pagination for GitHub schema/runtime compatibility.
+- Activity scope broadening:
+  - PR activity queries now include both `OPEN` and `MERGED` authored PRs (not only open), improving chance to capture real-world review/comment activity.
+
+### 2026-02-19 Session (Forty-Ninth Pass)
+- Tauri GraphQL response-shape fix:
+  - Root cause: native Tauri GraphQL command returns standard GraphQL envelope `{ data, errors }`, but adapter previously treated invoke return as already-unwrapped data object.
+- Symptom: runtime error in debug probe (`undefined is not an object (evaluating 'corePayload.viewer.login')`).
+- Fix: adapter now unwraps envelope in Tauri path and applies the same `errors` and `data` checks as browser path.
+
+### 2026-02-19 Session (Fiftieth Pass)
+- Bot handling refinement:
+  - `prosperity-bot` / `ps-bot` are now hard-excluded at ingestion time for GraphQL-derived activity notifications.
+  - Excluded bot activity is not delivered and not shown (not treated as suppressed).
+- Copilot handling refinement:
+  - Copilot suppression now matches both known bot accounts:
+    - `github-copilot[bot]`
+    - `copilot-pull-request-reviewer[bot]`
+  - and generic copilot bot-name pattern (`*copilot*[bot]`) in non-`all` modes.
+  - In `all` mode, Copilot activity remains deliverable by design.
+
+### 2026-02-19 Session (Fifty-First Pass)
+- Review-notification deduping policy tightened:
+  - For review-thread comments that belong to a `pullRequestReview`, Kiki now emits exactly one review notification per review id.
+  - Additional comments within the same review no longer generate separate comment notifications.
+- Applies equally to human and Copilot reviews:
+  - one review => one notification object (delivery still follows focus-mode suppression rules).
+
+### 2026-02-19 Session (Fifty-Second Pass)
+- GitHub rate-limit resilience improvements:
+  - Added local cache + temporary backoff in runtime for GitHub-backed loads:
+    - my PRs
+    - review requests
+    - notifications
+    - debug probe
+    - viewer login
+  - On rate-limit errors, app now serves last successful cached data when available instead of failing hard.
+  - Applies a 15-minute in-memory backoff to avoid hammering GitHub while limited.
+- Refresh load-shedding:
+  - Background 3-minute sync now refreshes notifications only (not full PR tables), reducing repeated expensive GitHub calls.
+  - Manual sync remains full refresh.
+
+### 2026-02-19 Session (Fifty-Third Pass)
+- Review-comment copy quality improvement:
+  - For collapsed review notifications (`review_commented`), if review summary body is empty, Kiki now uses linked review-thread comment content as preview text.
+  - Existing emitted review notification is upgraded from generic fallback text (`Left a review comment`) to real comment snippet when thread comment text is available.
+- For upgraded `review_commented` previews, deep-link target is also updated to exact comment URL when available.
+
+### 2026-02-19 Session (Fifty-Fourth Pass)
+- Clarified comment vs review semantics:
+  - Normal PR conversation comments remain `comment`.
+  - Note: mapping details were refined further in Fifty-Fifth Pass.
+- UI distinction improved:
+  - `review_request` label changed to `Review Request`.
+  - `review_commented` label changed to `Review Comment`.
+  - `review_commented` icon changed from chat bubble to note icon to reduce confusion with normal comments.
+
+### 2026-02-19 Session (Fifty-Fifth Pass)
+- Official GitHub semantics alignment (docs-backed):
+  - Plain PR conversation comments (`IssueComment`) and standalone thread comments are treated as `comment`.
+  - Review submissions (`PullRequestReview`) are treated as review outcomes:
+    - `review_approved`
+    - `review_changes_requested`
+    - `review_commented`
+  - A review remains one notification, even when it contains multiple review-thread comments.
+- Labeling update:
+  - Recent Notifications chip now uses `Comment` for comment events and `Review` for review outcome events (instead of ambiguous `Review Comment` copy).
+  - Review action remains visible via emoji and detail text (`Approved`, `Requested changes`, `Commented in a review`).
+- Slack copy update:
+  - Replaced raw `Reason: ...` output with normalized type labels (`Comment`, `Review (Approved)`, `Review (Changes Requested)`, `Review (Commented)`, etc.) and optional detail snippet.
+
+### 2026-02-19 Session (Fifty-Sixth Pass)
+- Notification fetch + caching simplification:
+  - Removed localStorage/backoff cache wrapper from runtime GitHub loaders used by:
+    - recent notifications
+    - debug notifications
+    - debug probe
+    - PR tables
+    - viewer connection test
+  - These calls now always fetch fresh data from GitHub on refresh/sync, eliminating stale-debug snapshots caused by cached reads during backoff windows.
+- Notification enrichment simplification:
+  - Enrichment now has one focused REST branch:
+    - `review_request` notifications are enriched with PR author + canonical URL.
+  - Removed legacy comment/update inference branches that were no longer needed after moving comment/review ingestion to GraphQL.
+- Comment vs review behavior locked in:
+  - `comment` is emitted for PR conversation comments and standalone review-thread comments.
+  - `review_*` is emitted only for explicit `PullRequestReview` submissions.
+  - Review-thread comments linked to a review continue to collapse into a single review notification.
+- Slack delivery copy overhaul:
+  - Slack messages now mirror app notification semantics (emoji + typed header + actor/action + concise detail + repo + deep link), instead of raw `Reason: ...`.
+- Debug Slack testing:
+  - Added debug actions to send typed Slack test notifications:
+    - Review Request
+    - Comment
+    - Review Approved
+    - Review Changes Requested
+    - Review Commented

@@ -10,8 +10,18 @@ export function getDeliveryDecision(notification: GitHubNotification, rule: Rule
     return { action: "deliver", reason: "focus_mode_all" };
   }
 
+  // Team-only review requests are still shown in Kiki, but should not notify
+  // outside of All mode.
+  if (
+    notification.isReviewRequest &&
+    notification.isTeamReviewRequest &&
+    !notification.isDirectReviewRequest
+  ) {
+    return { action: "suppress", reason: "team_review_request_suppressed_outside_all" };
+  }
+
   const suppressCopilotByMode = rule.focusMode === "calm" || rule.focusMode === "focused";
-  if ((rule.suppressCopilot || suppressCopilotByMode) && notification.latestCommentActor === "github-copilot[bot]") {
+  if ((rule.suppressCopilot || suppressCopilotByMode) && isCopilotActor(notification)) {
     return { action: "suppress", reason: "latest_comment_from_github_copilot_bot" };
   }
 
@@ -28,4 +38,12 @@ export function getDeliveryDecision(notification: GitHubNotification, rule: Rule
 
 export function deliveryKey(userId: string, notification: GitHubNotification): string {
   return `${userId}:${notification.id}:${notification.updatedAt}`;
+}
+
+function isCopilotActor(notification: GitHubNotification): boolean {
+  const actor = (notification.latestCommentActor || notification.actorLogin || "").trim().toLowerCase();
+  if (!actor) return false;
+  if (actor === "github-copilot[bot]") return true;
+  if (actor === "copilot-pull-request-reviewer[bot]") return true;
+  return actor.includes("copilot") && actor.endsWith("[bot]");
 }

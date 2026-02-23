@@ -1,5 +1,6 @@
 use keyring::Entry;
 use serde_json::Value;
+use std::time::Duration;
 use tauri::{AppHandle, State};
 
 use crate::{db::{AppDb, DbLogEntry}, tray};
@@ -19,23 +20,100 @@ pub fn secret_set(name: String, value: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn slack_api_call(token: String, method: String, body: Value) -> Result<Value, String> {
-    let client = reqwest::blocking::Client::new();
+pub async fn slack_api_call(token: String, method: String, body: Value) -> Result<Value, String> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
     let response = client
         .post(format!("https://slack.com/api/{method}"))
         .bearer_auth(token)
         .json(&body)
         .send()
+        .await
         .map_err(|e| e.to_string())?;
 
     let status = response.status();
-    let payload = response.json::<Value>().map_err(|e| e.to_string())?;
+    let payload = response.json::<Value>().await.map_err(|e| e.to_string())?;
 
     if !status.is_success() {
         return Err(format!("Slack HTTP error: {status} payload={payload}"));
     }
 
     Ok(payload)
+}
+
+#[tauri::command]
+pub async fn github_api_get(token: String, path: String) -> Result<Value, String> {
+    let normalized_path = if path.starts_with('/') {
+        path
+    } else {
+        format!("/{path}")
+    };
+
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .get(format!("https://api.github.com{normalized_path}"))
+        .bearer_auth(token)
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .header("Cache-Control", "no-cache")
+        .header("Pragma", "no-cache")
+        .header("User-Agent", "kiki")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = response.status();
+    let body = response.text().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!("GitHub HTTP error: {status} body={body}"));
+    }
+
+    serde_json::from_str::<Value>(&body)
+        .map_err(|e| format!("GitHub JSON parse error: {e}. body={body}"))
+}
+
+#[tauri::command]
+pub async fn github_api_graphql(
+    token: String,
+    query: String,
+    variables: Value,
+) -> Result<Value, String> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .post("https://api.github.com/graphql")
+        .bearer_auth(token)
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .header("Cache-Control", "no-cache")
+        .header("Pragma", "no-cache")
+        .header("User-Agent", "kiki")
+        .json(&serde_json::json!({
+            "query": query,
+            "variables": variables
+        }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = response.status();
+    let body = response.text().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!("GitHub GraphQL HTTP error: {status} body={body}"));
+    }
+
+    serde_json::from_str::<Value>(&body)
+        .map_err(|e| format!("GitHub GraphQL JSON parse error: {e}. body={body}"))
 }
 
 #[tauri::command]

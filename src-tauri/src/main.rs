@@ -12,6 +12,8 @@ fn main() {
             commands::secret_get,
             commands::secret_set,
             commands::slack_api_call,
+            commands::github_api_get,
+            commands::github_api_graphql,
             commands::db_has_processed_key,
             commands::db_log_delivery,
             commands::db_log_suppression,
