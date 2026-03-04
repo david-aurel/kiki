@@ -37,7 +37,7 @@ export function getDeliveryDecision(notification: GitHubNotification, rule: Rule
 }
 
 export function deliveryKey(userId: string, notification: GitHubNotification): string {
-  return `${userId}:${notification.id}:${notification.updatedAt}`;
+  return `${userId}:${notification.id}`;
 }
 
 function isCopilotActor(notification: GitHubNotification): boolean {
@@ -45,5 +45,5 @@ function isCopilotActor(notification: GitHubNotification): boolean {
   if (!actor) return false;
   if (actor === "github-copilot[bot]") return true;
   if (actor === "copilot-pull-request-reviewer[bot]") return true;
-  return actor.includes("copilot") && actor.endsWith("[bot]");
+  return actor.includes("copilot");
 }

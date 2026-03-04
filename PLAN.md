@@ -1168,3 +1168,29 @@ kiki/
     - Review Approved
     - Review Changes Requested
     - Review Commented
+
+### 2026-02-19 Session (Fifty-Seventh Pass)
+- Recently closed PR activity support:
+  - GraphQL activity queries now include `CLOSED` PRs in addition to `OPEN` and `MERGED`.
+  - Added a 48-hour recency window for non-open PR activity:
+    - comments/reviews are included for PRs that were merged/closed within the last 48 hours.
+  - Prevents missing post-close discussion while avoiding long-tail noise from old closed PRs.
+- Duplicate Slack delivery fix:
+  - Delivery dedupe key changed from `userId:id:updatedAt` to stable `userId:id`.
+  - Eliminates repeated Slack sends for the same notification when upstream `updatedAt` changes on the same thread.
+- Focus-mode suppression reliability:
+  - Copilot detection broadened to match any actor login containing `copilot` (case-insensitive), plus known bot identities.
+  - Focus switch now triggers a notification refresh so delivered/suppressed panels immediately reflect current mode.
+- Notification event timestamp stability:
+  - Removed fallback to PR-level `updatedAt` when deriving comment/review event timestamps.
+  - Event timestamps are now taken from comment/review fields only, avoiding timestamp churn that caused repeat processing.
+- PR tables refresh behavior:
+  - Background sync now performs a full refresh (not notifications-only), so `Review Requests` and `My PRs` stay current.
+  - On refresh failure for a section, that section is cleared instead of silently showing stale data.
+
+### 2026-02-19 Session (Fifty-Eighth Pass)
+- Slack actor attribution fix:
+  - Review-request notification source now carries actor identity (`actorLogin` / `actorAvatarUrl`) from PR subject metadata.
+  - Slack formatter now uses robust actor fallback:
+    - `actorLogin` -> `latestCommentActor` -> `"Someone"`.
+  - Result: Slack messages for review requests and comments consistently include who triggered the event.

@@ -8,6 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 const GITHUB_API = "https://api.github.com";
 const EXCLUDED_ACTORS = new Set(["prosperity-bot", "ps-bot"]);
+const RECENTLY_CLOSED_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 function runningInTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -78,6 +79,9 @@ interface GraphqlMyPrActivityCoreData {
         title: string;
         url: string;
         updatedAt: string;
+        state: "OPEN" | "MERGED" | "CLOSED" | string;
+        closedAt?: string | null;
+        mergedAt?: string | null;
         repository: { nameWithOwner: string };
         comments: {
           nodes: Array<{
@@ -113,6 +117,9 @@ interface GraphqlMyPrThreadCommentsData {
         title: string;
         url: string;
         updatedAt: string;
+        state: "OPEN" | "MERGED" | "CLOSED" | string;
+        closedAt?: string | null;
+        mergedAt?: string | null;
         repository: { nameWithOwner: string };
         reviewThreads: {
           nodes: Array<{
@@ -359,9 +366,19 @@ export class GitHubHttpAdapter implements GitHubPort {
     }
 
     const viewerLogin = (await this.fetchViewerLogin(token)).toLowerCase();
-    const requestMetaCache = new Map<string, { isDirect: boolean; isTeam: boolean }>();
+    const requestMetaCache = new Map<string, {
+      isDirect: boolean;
+      isTeam: boolean;
+      actorLogin?: string;
+      actorAvatarUrl?: string;
+    }>();
 
-    const resolveRequestMeta = async (subjectUrl?: string): Promise<{ isDirect: boolean; isTeam: boolean }> => {
+    const resolveRequestMeta = async (subjectUrl?: string): Promise<{
+      isDirect: boolean;
+      isTeam: boolean;
+      actorLogin?: string;
+      actorAvatarUrl?: string;
+    }> => {
       if (!subjectUrl) return { isDirect: false, isTeam: false };
       const cached = requestMetaCache.get(subjectUrl);
       if (cached) return cached;
@@ -372,7 +389,12 @@ export class GitHubHttpAdapter implements GitHubPort {
           (reviewer) => reviewer.login?.toLowerCase() === viewerLogin
         );
         const isTeam = (payload.requested_teams || []).length > 0;
-        const meta = { isDirect, isTeam };
+        const meta = {
+          isDirect,
+          isTeam,
+          actorLogin: payload.user?.login || undefined,
+          actorAvatarUrl: payload.user?.avatar_url || undefined
+        };
         requestMetaCache.set(subjectUrl, meta);
         return meta;
       } catch {
@@ -396,6 +418,9 @@ export class GitHubHttpAdapter implements GitHubPort {
           subjectUrl: item.subject.url,
           latestCommentUrl: item.subject.latest_comment_url,
           targetUrl: this.mapApiSubjectUrlToHtml(item.subject.url),
+          actorLogin: meta.actorLogin,
+          actorAvatarUrl: meta.actorAvatarUrl,
+          latestCommentActor: meta.actorLogin,
           category: "review_request" as const,
           isPersonalPrActivity: false,
           isReviewRequest: true,
@@ -418,13 +443,16 @@ export class GitHubHttpAdapter implements GitHubPort {
     const events: GitHubNotification[] = [];
 
     for (const pr of corePayload.viewer.pullRequests.nodes || []) {
+      if (!this.shouldIncludePrActivity(pr.state, pr.closedAt, pr.mergedAt)) continue;
+
       for (const comment of pr.comments.nodes || []) {
         const actorLogin = comment.author?.login || undefined;
         if (!actorLogin || actorLogin.toLowerCase() === viewerLogin) continue;
         if (this.isExcludedActor(actorLogin)) continue;
 
-        const occurredAt = comment.createdAt || comment.updatedAt || pr.updatedAt;
-        const updatedAt = comment.updatedAt || comment.createdAt || pr.updatedAt;
+        const occurredAt = comment.createdAt || comment.updatedAt;
+        const updatedAt = comment.updatedAt || comment.createdAt || occurredAt;
+        if (!occurredAt || !updatedAt) continue;
         const preview = comment.bodyText?.replace(/\s+/g, " ").trim().slice(0, 140);
 
         events.push({
@@ -456,8 +484,9 @@ export class GitHubHttpAdapter implements GitHubPort {
         const mapped = this.reviewStateCategory(review.state);
         if (!mapped) continue;
 
-        const occurredAt = review.submittedAt || review.updatedAt || pr.updatedAt;
-        const updatedAt = review.updatedAt || review.submittedAt || pr.updatedAt;
+        const occurredAt = review.submittedAt || review.updatedAt;
+        const updatedAt = review.updatedAt || review.submittedAt || occurredAt;
+        if (!occurredAt || !updatedAt) continue;
         const previewBody = review.bodyText?.replace(/\s+/g, " ").trim().slice(0, 140);
         const previewText = previewBody || mapped.previewText;
 
@@ -485,6 +514,8 @@ export class GitHubHttpAdapter implements GitHubPort {
 
     if (threadPayload) {
       for (const pr of threadPayload.viewer.pullRequests.nodes || []) {
+        if (!this.shouldIncludePrActivity(pr.state, pr.closedAt, pr.mergedAt)) continue;
+
         const emittedReviewIds = new Set<string>(
           events
             .filter((event) => event.id.startsWith("gql:review:"))
@@ -512,8 +543,9 @@ export class GitHubHttpAdapter implements GitHubPort {
                 ) {
                   const mapped = this.reviewStateCategory(linkedReview.state);
                   if (mapped) {
-                    const reviewOccurredAt = linkedReview.submittedAt || linkedReview.updatedAt || comment.createdAt || comment.updatedAt || pr.updatedAt;
-                    const reviewUpdatedAt = linkedReview.updatedAt || linkedReview.submittedAt || comment.updatedAt || comment.createdAt || pr.updatedAt;
+                    const reviewOccurredAt = linkedReview.submittedAt || linkedReview.updatedAt || comment.createdAt || comment.updatedAt;
+                    const reviewUpdatedAt = linkedReview.updatedAt || linkedReview.submittedAt || comment.updatedAt || comment.createdAt || reviewOccurredAt;
+                    if (!reviewOccurredAt || !reviewUpdatedAt) continue;
                     const previewBody = linkedReview.bodyText?.replace(/\s+/g, " ").trim().slice(0, 140);
                     events.push({
                       id: `gql:review:${linkedReviewId}`,
@@ -554,8 +586,9 @@ export class GitHubHttpAdapter implements GitHubPort {
               continue;
             }
 
-            const occurredAt = comment.createdAt || comment.updatedAt || pr.updatedAt;
-            const updatedAt = comment.updatedAt || comment.createdAt || pr.updatedAt;
+            const occurredAt = comment.createdAt || comment.updatedAt;
+            const updatedAt = comment.updatedAt || comment.createdAt || occurredAt;
+            if (!occurredAt || !updatedAt) continue;
             const preview = comment.bodyText?.replace(/\s+/g, " ").trim().slice(0, 140);
 
             events.push({
@@ -590,7 +623,11 @@ export class GitHubHttpAdapter implements GitHubPort {
       }
     }
 
-    return [...byId.values()].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return [...byId.values()].sort(
+      (a, b) =>
+        new Date(b.occurredAt || b.updatedAt).getTime() -
+        new Date(a.occurredAt || a.updatedAt).getTime()
+    );
   }
 
   private async fetchMyPrActivityCore(token: string): Promise<GraphqlMyPrActivityCoreData> {
@@ -598,13 +635,16 @@ export class GitHubHttpAdapter implements GitHubPort {
       query KikiMyPrActivityCore($prFirst: Int!, $commentLast: Int!, $reviewLast: Int!) {
         viewer {
           login
-          pullRequests(first: $prFirst, states: [OPEN, MERGED], orderBy: { field: UPDATED_AT, direction: DESC }) {
+          pullRequests(first: $prFirst, states: [OPEN, MERGED, CLOSED], orderBy: { field: UPDATED_AT, direction: DESC }) {
             nodes {
               id
               number
               title
               url
               updatedAt
+              state
+              closedAt
+              mergedAt
               repository { nameWithOwner }
               comments(last: $commentLast) {
                 nodes {
@@ -637,13 +677,16 @@ export class GitHubHttpAdapter implements GitHubPort {
       query KikiMyPrActivityCoreFallback($prFirst: Int!, $commentFirst: Int!, $reviewFirst: Int!) {
         viewer {
           login
-          pullRequests(first: $prFirst, states: [OPEN, MERGED], orderBy: { field: UPDATED_AT, direction: DESC }) {
+          pullRequests(first: $prFirst, states: [OPEN, MERGED, CLOSED], orderBy: { field: UPDATED_AT, direction: DESC }) {
             nodes {
               id
               number
               title
               url
               updatedAt
+              state
+              closedAt
+              mergedAt
               repository { nameWithOwner }
               comments(first: $commentFirst) {
                 nodes {
@@ -691,12 +734,15 @@ export class GitHubHttpAdapter implements GitHubPort {
     const queryLast = `
       query KikiMyPrThreadComments($prFirst: Int!, $threadLast: Int!, $threadCommentLast: Int!) {
         viewer {
-          pullRequests(first: $prFirst, states: [OPEN, MERGED], orderBy: { field: UPDATED_AT, direction: DESC }) {
+          pullRequests(first: $prFirst, states: [OPEN, MERGED, CLOSED], orderBy: { field: UPDATED_AT, direction: DESC }) {
             nodes {
               id
               title
               url
               updatedAt
+              state
+              closedAt
+              mergedAt
               repository { nameWithOwner }
               reviewThreads(last: $threadLast) {
                 nodes {
@@ -730,12 +776,15 @@ export class GitHubHttpAdapter implements GitHubPort {
     const queryFirst = `
       query KikiMyPrThreadCommentsFallback($prFirst: Int!, $threadFirst: Int!, $threadCommentFirst: Int!) {
         viewer {
-          pullRequests(first: $prFirst, states: [OPEN, MERGED], orderBy: { field: UPDATED_AT, direction: DESC }) {
+          pullRequests(first: $prFirst, states: [OPEN, MERGED, CLOSED], orderBy: { field: UPDATED_AT, direction: DESC }) {
             nodes {
               id
               title
               url
               updatedAt
+              state
+              closedAt
+              mergedAt
               repository { nameWithOwner }
               reviewThreads(first: $threadFirst) {
                 nodes {
@@ -834,7 +883,7 @@ export class GitHubHttpAdapter implements GitHubPort {
 
   formatSlackMessage(notification: GitHubNotification): string {
     const category = notification.category || this.categoryFromReason(notification.reason);
-    const actor = notification.actorLogin ? `@${notification.actorLogin}` : "Someone";
+    const actor = notification.actorLogin || notification.latestCommentActor || "Someone";
     const url = notification.targetUrl || notification.subjectUrl || "";
     const title = this.truncate(notification.subjectTitle, 120);
     const detail = notification.previewText ? this.truncate(notification.previewText, 180) : undefined;
@@ -1106,6 +1155,20 @@ export class GitHubHttpAdapter implements GitHubPort {
     }
 
     return undefined;
+  }
+
+  private shouldIncludePrActivity(
+    state: string | undefined,
+    closedAt?: string | null,
+    mergedAt?: string | null
+  ): boolean {
+    if (state === "OPEN") return true;
+
+    const closedTimestamp = closedAt || mergedAt;
+    if (!closedTimestamp) return false;
+    const closedMs = new Date(closedTimestamp).getTime();
+    if (!Number.isFinite(closedMs)) return false;
+    return Date.now() - closedMs <= RECENTLY_CLOSED_WINDOW_MS;
   }
 
   private categoryFromReason(reason: string): NotificationCategory {

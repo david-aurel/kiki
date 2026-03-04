@@ -76,13 +76,22 @@ export default function App() {
     const errors: string[] = [];
 
     if (my.status === "fulfilled") setMyPrs(my.value);
-    else errors.push(`my PRs: ${my.reason instanceof Error ? my.reason.message : String(my.reason)}`);
+    else {
+      setMyPrs([]);
+      errors.push(`my PRs: ${my.reason instanceof Error ? my.reason.message : String(my.reason)}`);
+    }
 
     if (reviews.status === "fulfilled") setReviewRequests(reviews.value);
-    else errors.push(`review requests: ${reviews.reason instanceof Error ? reviews.reason.message : String(reviews.reason)}`);
+    else {
+      setReviewRequests([]);
+      errors.push(`review requests: ${reviews.reason instanceof Error ? reviews.reason.message : String(reviews.reason)}`);
+    }
 
     if (recents.status === "fulfilled") setNotifications(recents.value);
-    else errors.push(`notifications: ${recents.reason instanceof Error ? recents.reason.message : String(recents.reason)}`);
+    else {
+      setNotifications([]);
+      errors.push(`notifications: ${recents.reason instanceof Error ? recents.reason.message : String(recents.reason)}`);
+    }
 
     if (login.status === "fulfilled") setViewerLogin(login.value);
     else errors.push(`viewer: ${login.reason instanceof Error ? login.reason.message : String(login.reason)}`);
@@ -175,8 +184,8 @@ export default function App() {
     if (paused) return;
 
     const timer = window.setInterval(() => {
-      void runSync("Background sync complete", "notifications");
-    }, 180000);
+      void runSync("Background sync complete", "full");
+    }, 300000);
 
     return () => window.clearInterval(timer);
   }, [paused, runSync]);
@@ -212,7 +221,7 @@ export default function App() {
       setFocusTransition(null);
       transitionTimerRef.current = null;
     }, 1500);
-    setStatus(`Focus set to ${mode}`);
+    void refreshNotificationsOnly(`Focus set to ${mode}`);
   }
 
   function toggleSection(section: SectionTab): void {

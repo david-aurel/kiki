@@ -9,3 +9,8 @@ script = ""
 name = "Run"
 icon = "run"
 command = "npm run tauri:dev"
+
+[[actions]]
+name = "build"
+icon = "tool"
+command = "npm run tauri:build"
