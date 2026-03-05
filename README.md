@@ -137,12 +137,3 @@ src-tauri/
 PLAN.md
 README.md
 ```
-
-## Known Limitations
-- No Slack ingestion (Kiki is GitHub-source only in v1).
-- No Outlook integration.
-- No multi-user server mode.
-
-## Maintainer Notes
-- `PLAN.md` contains the consolidated execution plan plus pass-by-pass summary.
-- If behavior changes, update `README.md` and `PLAN.md` together.
