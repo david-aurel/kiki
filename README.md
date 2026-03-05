@@ -1,64 +1,148 @@
 # Kiki
 
-Kiki is a local-first macOS menu bar app (Tauri + React) for GitHub notification triage and Slack DM delivery.
+Kiki is a local-first macOS menu bar app for GitHub notification triage.
+It ingests review requests and authored-PR activity, applies focus-mode suppression rules, and delivers actionable items to Slack DM.
 
-## Current status
-- Tauri + React + TypeScript app scaffolded and runnable.
-- Focus modes implemented (`All`, `Personal PRs`, `Review Requests`, `Custom`).
-- Notification pipeline implemented:
-  - GitHub notifications fetch
-  - Copilot suppression (latest comment actor)
-  - reason suppression + focus filtering
-  - Slack DM delivery
-  - dedupe and logs
-- PR dashboards implemented from real GitHub API data:
+## What Kiki Does
+- Pulls **review requests** from GitHub notifications.
+- Pulls **comments/reviews on PRs you authored** from GitHub GraphQL.
+- Splits notifications into:
+  - `Delivered` (would notify)
+  - `Suppressed` (kept visible, not notified)
+- Sends delivered items to Slack DM via bot.
+- Shows operational dashboards for:
+  - `Review Requests`
   - `My PRs`
-  - `Review Requests` (direct + team handles)
-  - CI rollup, review summary, diff size, age/SLA, estimate parsing
-- Native Tauri commands:
-  - Keychain secret storage (`secret_get`, `secret_set`)
-  - SQLite-backed log storage (`db_*` commands)
-- Tray behavior implemented (open/quit).
-- Test suite present for core logic.
+
+## Focus Modes
+- `All`: deliver everything (except hard-excluded actors).
+- `Calm`: personal PR activity + review requests; suppress Copilot noise.
+- `Focused`: personal PR activity only.
+- `Zen`: suppress all notifications.
+
+Additional rules:
+- Team-only review requests are suppressed outside `All` (still shown in UI).
+- Actors like `prosperity-bot` / `ps-bot` are excluded.
+
+## Notification Semantics
+Kiki distinguishes comment events from review events:
+- `comment`: issue/PR comments and standalone review-thread comments.
+- `review_approved` / `review_changes_requested` / `review_commented`: explicit review submissions.
+
+Review-thread comments linked to a review are collapsed into one review notification.
+
+## Stack
+- Tauri 2 + React + TypeScript + Vite
+- GitHub REST + GraphQL
+- Slack Web API (`chat.postMessage`)
+- Desktop persistence: SQLite + macOS keychain
+- Web fallback persistence: localStorage
 
 ## Prerequisites
+- macOS (menu bar + native behavior is macOS-first)
 - Node.js 20+
 - Rust toolchain (`rustup`, `cargo`)
-- macOS for desktop runtime features
+- Xcode Command Line Tools
+
+If Tauri build fails with Xcode license error:
+```bash
+sudo xcodebuild -license
+sudo xcodebuild -runFirstLaunch
+```
 
 ## Install
 ```bash
 npm install
 ```
 
-## Run (web shell)
+## Run
+Web-only shell:
 ```bash
 npm run dev
 ```
 
-## Run (desktop app)
+Desktop app (recommended):
 ```bash
 npm run tauri:dev
 ```
 
-## Quality checks
+## Build
+Frontend build:
 ```bash
-npm run lint
-npm run test
-npm run typecheck
 npm run build
-cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-## Initial setup in app
-1. Open `Settings`.
-2. Set token refs (defaults are fine).
-3. Paste GitHub PAT and Slack bot token.
-4. Set Slack user ID (`U...`) and optional team handles (`org/team`, one per line).
-5. Click `Save`.
-6. Run `Test GitHub`, `Test Slack`, then `Sync Now`.
+Desktop bundle build:
+```bash
+npm run tauri:build
+```
 
-## Notes
-- In desktop mode, logs/dedupe persist in SQLite via Tauri commands.
-- In web-only mode (`npm run dev`), adapters fall back to browser local storage.
-- Webhook relay path is still planned; current flow uses API sync and background refresh.
+## Quality Checks
+```bash
+npm run typecheck
+npm run lint
+npm run test -- --run
+```
+
+## Setup (First Run)
+1. Open **Settings**.
+2. Set token refs (defaults are fine unless you want custom names).
+3. Paste secrets:
+   - GitHub token
+   - Slack bot token
+4. Set Slack user ID (`U...`) as DM destination.
+5. Optional: add team handles (`org/team`, one per line).
+6. Click **Save**.
+7. Use **Test GitHub** and **Test Slack**.
+8. Click **Sync**.
+
+## Debug Workflow
+Open **Debug** from the top bar.
+
+The debug modal provides:
+- Notification table with classification and delivery decision.
+- API probe snapshots for notification endpoint sanity checks.
+- Slack test event buttons:
+  - Review Request
+  - Comment
+  - Review Approved
+  - Review Changes Requested
+  - Review Commented
+
+## Background Behavior
+- Closing the window hides it; app keeps running in menu bar.
+- Use **Quit** to fully terminate.
+- Dock visibility is dynamic (visible when app window is active).
+
+## Data & Dedupe
+- Delivery dedupe key is stable by notification id (`userId:notificationId`).
+- Goal: prevent repeated Slack sends of the same notification.
+- Notifications and PR panels refresh on sync; background sync keeps views current.
+
+## GitHub Activity Window
+Authored PR activity includes `OPEN`, `MERGED`, and `CLOSED` PRs.
+For non-open PRs, activity is included only if the PR was merged/closed in the last 48 hours.
+
+## Current Project Layout
+```text
+src/
+  adapters/
+  core/
+  lib/
+  ports/
+  test/
+  ui/
+src-tauri/
+  src/
+PLAN.md
+README.md
+```
+
+## Known Limitations
+- No Slack ingestion (Kiki is GitHub-source only in v1).
+- No Outlook integration.
+- No multi-user server mode.
+
+## Maintainer Notes
+- `PLAN.md` contains the consolidated execution plan plus pass-by-pass summary.
+- If behavior changes, update `README.md` and `PLAN.md` together.
